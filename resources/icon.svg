@@ -1,13 +1,40 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="The Rivalry League">
+  <title>The Rivalry League</title>
   <defs>
-    <radialGradient id="bg" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#8c5e3c"/><stop offset="1" stop-color="#543117"/></radialGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe58f"/><stop offset="0.5" stop-color="#d49a24"/><stop offset="1" stop-color="#ffd24d"/></linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0dcae"/>
+      <stop offset="0.5" stop-color="#c5a06a"/>
+      <stop offset="1" stop-color="#8f6a3a"/>
+    </linearGradient>
+    <linearGradient id="willow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fbf1dc"/>
+      <stop offset="1" stop-color="#e3c690"/>
+    </linearGradient>
+    <radialGradient id="leather" cx="0.36" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#d9483b"/>
+      <stop offset="1" stop-color="#8a1f18"/>
+    </radialGradient>
+    <g id="bat">
+      <rect x="245" y="286" width="22" height="168" rx="10" fill="#e3c690"/>
+      <rect x="245" y="372" width="22" height="82" rx="10" fill="#c5a06a"/>
+      <path d="M224 130c0-12 14-20 32-20s32 8 32 20v166c0 16-12 29-32 33-20-4-32-17-32-33z" fill="url(#willow)"/>
+    </g>
   </defs>
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  <circle cx="512" cy="512" r="330" fill="#2c241e" stroke="url(#gold)" stroke-width="34"/>
-  <circle cx="512" cy="512" r="262" fill="none" stroke="#ffc83d" stroke-opacity="0.35" stroke-width="6"/>
-  <path d="M300 330 C 440 450, 440 574, 300 694" fill="none" stroke="url(#gold)" stroke-width="22" stroke-linecap="round"/>
-  <path d="M724 330 C 584 450, 584 574, 724 694" fill="none" stroke="url(#gold)" stroke-width="22" stroke-linecap="round"/>
-  <path d="M512 330 L512 694" stroke="url(#gold)" stroke-width="18" stroke-linecap="round" stroke-dasharray="2 40"/>
-  <path d="M430 512 L494 576 L610 440" fill="none" stroke="#ffc83d" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- The two sides of the rivalry -->
+  <path d="M256 22 462 82v168c0 122-88 204-206 240C138 454 50 372 50 250V82z" fill="#2c241e"/>
+  <path d="M256 22 462 82v168c0 122-88 204-206 240z" fill="#6e472b"/>
+  <path d="M256 22 462 82v168c0 122-88 204-206 240C138 454 50 372 50 250V82z" fill="none" stroke="url(#rim)" stroke-width="20" stroke-linejoin="round"/>
+
+  <!-- Crossed bats -->
+  <use href="#bat" transform="translate(0 -22) rotate(-36 256 300)"/>
+  <g transform="translate(0 -22) rotate(36 256 300)">
+    <path d="M224 130c0-12 14-20 32-20s32 8 32 20v166c0 16-12 29-32 33-20-4-32-17-32-33z" fill="none" stroke="#2c241e" stroke-width="16"/>
+    <rect x="245" y="320" width="22" height="134" rx="10" fill="none" stroke="#2c241e" stroke-width="14"/>
+    <use href="#bat"/>
+  </g>
+
+  <!-- Ball -->
+  <circle cx="256" cy="116" r="40" fill="url(#leather)" stroke="#2c241e" stroke-width="10"/>
+  <path d="M231 91c17 17 33 33 50 50" fill="none" stroke="#fbf1dc" stroke-width="7" stroke-linecap="round"/>
 </svg>

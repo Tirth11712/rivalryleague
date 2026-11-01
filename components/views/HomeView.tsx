@@ -50,7 +50,7 @@ export function HomeView({
   return (
     <div>
       <section className="hero-card">
-        <div className="hero-mark"><Shield size={32} /></div>
+        <img className="hero-mark" src="/icon.svg" alt="The Rivalry League crest" width={112} height={112} />
         <div className="eyebrow">
           <span className="live-dot" /> The Rivalry League · Season {season}
         </div>

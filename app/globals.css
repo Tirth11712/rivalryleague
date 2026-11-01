@@ -105,16 +105,11 @@ em { font-style: normal; color: var(--cognac); }
 
 .brand { display: flex; align-items: center; gap: 8px; min-width: 0; text-align: left; }
 .brand-mark {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  background: var(--cognac);
-  color: var(--on-cognac);
-  border: 1px solid rgba(155, 111, 78, 0.35);
-  box-shadow: var(--shadow-sm);
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(44, 36, 30, 0.22));
 }
 .brand-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.1; }
 .brand-title {
@@ -470,15 +465,11 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 /* ------------------------------ Home ------------------------------------ */
 .hero-card { padding: 8px 0 18px; }
 .hero-mark {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  display: grid;
-  place-items: center;
-  background: var(--cognac);
-  color: var(--on-cognac);
-  box-shadow: var(--shadow-md);
-  margin-bottom: 16px;
+  width: 112px;
+  height: 112px;
+  flex-shrink: 0;
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(44, 36, 30, 0.22));
 }
 .eyebrow {
   display: inline-flex;

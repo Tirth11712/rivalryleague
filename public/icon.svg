@@ -1,60 +1,40 @@
-<svg width="180" height="180" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="The Rivalry League">
+  <title>The Rivalry League</title>
   <defs>
-    <radialGradient id="trlShieldGrad" cx="50%" cy="40%" r="60%">
-      <stop offset="0%" stopColor="#162238" />
-      <stop offset="65%" stopColor="#0a101d" />
-      <stop offset="100%" stopColor="#04070d" />
-    </radialGradient>
-    <linearGradient id="trlGoldRim" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stopColor="#ffe58f" />
-      <stop offset="35%" stopColor="#d49a24" />
-      <stop offset="70%" stopColor="#fff3b0" />
-      <stop offset="100%" stopColor="#8c5807" />
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0dcae"/>
+      <stop offset="0.5" stop-color="#c5a06a"/>
+      <stop offset="1" stop-color="#8f6a3a"/>
     </linearGradient>
-    <radialGradient id="trlBallGrad" cx="35%" cy="30%" r="70%">
-      <stop offset="0%" stopColor="#ff4d4f" />
-      <stop offset="50%" stopColor="#cf1322" />
-      <stop offset="100%" stopColor="#5c0011" />
-    </radialGradient>
-    <radialGradient id="trlSparkGrad" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stopColor="#ffffff" />
-      <stop offset="40%" stopColor="#ffd666" />
-      <stop offset="80%" stopColor="#fa8c16" stopOpacity="0.8" />
-      <stop offset="100%" stopColor="#ff4d4f" stopOpacity="0" />
-    </radialGradient>
-    <linearGradient id="trlWoodA" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stopColor="#ffe7ba" />
-      <stop offset="50%" stopColor="#d48806" />
-      <stop offset="100%" stopColor="#613400" />
+    <linearGradient id="willow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fbf1dc"/>
+      <stop offset="1" stop-color="#e3c690"/>
     </linearGradient>
-    <linearGradient id="trlWoodB" x1="100%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#fff1b8" />
-      <stop offset="50%" stopColor="#d46b08" />
-      <stop offset="100%" stopColor="#381a00" />
-    </linearGradient>
+    <radialGradient id="leather" cx="0.36" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#d9483b"/>
+      <stop offset="1" stop-color="#8a1f18"/>
+    </radialGradient>
+    <g id="bat">
+      <rect x="245" y="286" width="22" height="168" rx="10" fill="#e3c690"/>
+      <rect x="245" y="372" width="22" height="82" rx="10" fill="#c5a06a"/>
+      <path d="M224 130c0-12 14-20 32-20s32 8 32 20v166c0 16-12 29-32 33-20-4-32-17-32-33z" fill="url(#willow)"/>
+    </g>
   </defs>
 
-  <rect width="120" height="120" rx="28" fill="#070c16" />
-  <circle cx="60" cy="60" r="54" fill="url(#trlShieldGrad)" stroke="url(#trlGoldRim)" strokeWidth="3" />
-  <circle cx="60" cy="60" r="49" fill="none" stroke="#ffe58f" strokeWidth="1.2" strokeDasharray="18 10 32 10" opacity="0.6" />
+  <!-- The two sides of the rivalry -->
+  <path d="M256 22 462 82v168c0 122-88 204-206 240C138 454 50 372 50 250V82z" fill="#2c241e"/>
+  <path d="M256 22 462 82v168c0 122-88 204-206 240z" fill="#6e472b"/>
+  <path d="M256 22 462 82v168c0 122-88 204-206 240C138 454 50 372 50 250V82z" fill="none" stroke="url(#rim)" stroke-width="20" stroke-linejoin="round"/>
 
-  <!-- Crossed Bats -->
-  <g transform="translate(60,60) rotate(-42) translate(-60,-60)">
-    <rect x="57" y="10" width="6" height="24" rx="2.5" fill="#1d39c4" stroke="#85a5ff" strokeWidth="0.8" />
-    <path d="M 54.5 34 L 65.5 34 L 67 98 C 67 104 60 106 60 106 C 60 106 53 104 53 98 Z" fill="url(#trlWoodA)" stroke="#8c5807" strokeWidth="1" />
+  <!-- Crossed bats -->
+  <use href="#bat" transform="translate(0 -22) rotate(-36 256 300)"/>
+  <g transform="translate(0 -22) rotate(36 256 300)">
+    <path d="M224 130c0-12 14-20 32-20s32 8 32 20v166c0 16-12 29-32 33-20-4-32-17-32-33z" fill="none" stroke="#2c241e" stroke-width="16"/>
+    <rect x="245" y="320" width="22" height="134" rx="10" fill="none" stroke="#2c241e" stroke-width="14"/>
+    <use href="#bat"/>
   </g>
-  <g transform="translate(60,60) rotate(42) translate(-60,-60)">
-    <rect x="57" y="10" width="6" height="24" rx="2.5" fill="#b37feb" stroke="#d3adf7" strokeWidth="0.8" />
-    <path d="M 54.5 34 L 65.5 34 L 67 98 C 67 104 60 106 60 106 C 60 106 53 104 53 98 Z" fill="url(#trlWoodB)" stroke="#8c5807" strokeWidth="1" />
-  </g>
 
-  <!-- Central Ball -->
-  <circle cx="60" cy="60" r="16" fill="url(#trlBallGrad)" stroke="#ffd666" strokeWidth="1.5" />
-  <path d="M 46 60 C 53 53, 67 67, 74 60" fill="none" stroke="#ffffff" strokeWidth="1.8" strokeDasharray="2.5 1.8" />
-  <circle cx="60" cy="60" r="10" fill="url(#trlSparkGrad)" />
-  <path d="M 60 49 L 62 58 L 68 59 L 61 63 L 63 71 L 58 64 L 52 63 L 58 59 Z" fill="#ffffff" />
-
-  <!-- Bottom Banner -->
-  <rect x="36" y="93" width="48" height="15" rx="4" fill="#0c1220" stroke="url(#trlGoldRim)" strokeWidth="1.2" />
-  <text x="60" y="104" text-anchor="middle" fill="#ffe58f" font-family="sans-serif" font-size="10" font-weight="900" letter-spacing="1">RIVALRY</text>
+  <!-- Ball -->
+  <circle cx="256" cy="116" r="40" fill="url(#leather)" stroke="#2c241e" stroke-width="10"/>
+  <path d="M231 91c17 17 33 33 50 50" fill="none" stroke="#fbf1dc" stroke-width="7" stroke-linecap="round"/>
 </svg>

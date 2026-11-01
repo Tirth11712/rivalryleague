@@ -81,7 +81,7 @@ export function Topbar({
     <>
       <header className="topbar">
         <button className="brand" onClick={() => setPage('home')}>
-          <span className="brand-mark"><Shield size={18} /></span>
+          <img className="brand-mark" src="/icon.svg" alt="" width={36} height={36} />
           <span className="brand-text">
             <span className="brand-title">
               <span className="nm">{(leagueName || 'The Rivalry League').replace(/^the\s+/i, '')}</span>
