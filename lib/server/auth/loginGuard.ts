@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { NextResponse } from 'next/server'
-import { getSqlClient } from './db'
+import { getSqlClient } from '../db'
 
 const MAX_FAILURES = 8
 const WINDOW_MINUTES = 15

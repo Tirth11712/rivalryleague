@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Shuffle } from 'lucide-react'
 import type { Player } from '@/lib/server/db'
-import type { LiveSpin } from '@/lib/client/api'
+import type { ScheduledSpin } from '@/lib/client/api'
 
 const WEDGE_COLORS = ['#6e472b', '#a9834a', '#543117', '#8c5e3c', '#3f2a1a', '#c5a880', '#725b38', '#94704a']
 const UNSOLD_COLORS = ['#7a2e24', '#a8553f']
@@ -44,7 +44,7 @@ function buildWedges(list: Player[], unsoldRound: boolean) {
 }
 
 /** The angle that stops wedge `index` under the pointer at 12 o'clock. */
-export function stopAngle(index: number, count: number): number {
+function stopAngle(index: number, count: number): number {
   return 360 - ((index + 0.5) * 360) / count
 }
 
@@ -97,7 +97,7 @@ export function SpinWheel({
                   textAnchor="middle"
                   dominantBaseline="central"
                   fill="#ffffff"
-                  fontFamily="'Space Grotesk', sans-serif"
+                  fontFamily="inherit"
                   fontWeight="700"
                   fontSize={n > 18 ? 10 : n > 12 ? 12 : n > 6 ? 14 : 16}
                 >
@@ -117,34 +117,42 @@ export function SpinWheel({
 }
 
 /**
- * The superadmin's spin as seen on an owner's or viewer's screen. Someone who picks it up late
- * spins for only the time left, so every screen stops together.
+ * The one spin every screen plays, superadmin included. All wait for the scheduled start and turn
+ * for the full time; a screen that picks it up late spins for only the time left.
  */
-export function LiveSpinWheel({ spin, players }: { spin: LiveSpin; players: Player[] }) {
+export function LiveSpinWheel({ spin, players }: { spin: ScheduledSpin; players: Player[] }) {
   const pool = useMemo(
     () => spin.poolIds.map(id => players.find(p => p.id === id)).filter((p): p is Player => !!p),
     [spin.poolIds, players]
   )
   const [angle, setAngle] = useState(0)
   const [durationMs, setDurationMs] = useState(0)
+  const [started, setStarted] = useState(false)
   const count = spin.poolIds.length
 
   useEffect(() => {
     const target = EXTRA_TURNS * 360 + stopAngle(spin.landIndex, count)
-    const remaining = spin.durationMs - spin.elapsedMs
+    const elapsed = performance.now() - spin.startsAt
+    const remaining = spin.durationMs - Math.max(0, elapsed)
     if (remaining < 400) {
+      setStarted(true)
       setAngle(target) // caught the very end: show where it landed
       return
     }
     // Two frames so the wheel is painted at rest before it starts turning
+    let outer = 0
     let inner = 0
-    const outer = requestAnimationFrame(() => {
-      inner = requestAnimationFrame(() => {
-        setDurationMs(remaining)
-        setAngle(target)
+    const timer = window.setTimeout(() => {
+      outer = requestAnimationFrame(() => {
+        inner = requestAnimationFrame(() => {
+          setStarted(true)
+          setDurationMs(remaining)
+          setAngle(target)
+        })
       })
-    })
+    }, Math.max(0, -elapsed))
     return () => {
+      window.clearTimeout(timer)
       cancelAnimationFrame(outer)
       cancelAnimationFrame(inner)
     }
@@ -155,7 +163,7 @@ export function LiveSpinWheel({ spin, players }: { spin: LiveSpin; players: Play
     <SpinWheel players={pool} unsoldRound={spin.unsoldRound} angle={angle} spinning={durationMs > 0} durationMs={durationMs}>
       <div className="spinner-center" style={{ cursor: 'default' }}>
         <Shuffle size={20} className="spin-icon-anim" />
-        <small>DRAWING</small>
+        <small>{started ? 'DRAWING' : 'GET READY'}</small>
       </div>
     </SpinWheel>
   )

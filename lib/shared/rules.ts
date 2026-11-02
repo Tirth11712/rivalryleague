@@ -2,6 +2,8 @@ import type { Team } from '@/lib/server/db'
 
 export const BASE_PRICE = 500
 
+// A spin is scheduled this far ahead, so polling screens hear about it before it starts
+export const WHEEL_LEAD_MS = 2500
 export const WHEEL_SPIN_MS = 3200
 export const WHEEL_REVEAL_PAUSE_MS = 500
 

@@ -1,5 +1,5 @@
-import { readDb, writeDb, DatabaseSchema } from './db'
-import { hashPassword, passwordMatches } from './password'
+import { readDb, writeDb, DatabaseSchema } from '../db'
+import { hashPassword, passwordMatches } from '../auth/password'
 
 type AuthResult = { success: boolean; message: string; wrongPassword?: boolean }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { getOwnerTeamId, requireAuth } from '@/lib/server/token'
+import { getOwnerTeamId, requireAuth } from '@/lib/server/auth/token'
 import {
   getAuctionSnapshot,
   spinWheel,
@@ -10,7 +10,7 @@ import {
   markUnsold,
   resetAuction,
   reopenAllUnsold
-} from '@/lib/server/auctionService'
+} from '@/lib/server/services/auctionService'
 
 export async function GET() {
   try {

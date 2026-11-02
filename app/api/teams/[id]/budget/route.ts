@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { requireAuth } from '@/lib/server/token'
-import { adjustTeamBudget, getAllTeams } from '@/lib/server/teamService'
+import { requireAuth } from '@/lib/server/auth/token'
+import { adjustTeamBudget, getAllTeams } from '@/lib/server/services/teamService'
 
 export async function POST(
   req: Request,

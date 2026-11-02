@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { requireTeamOwner } from '@/lib/server/token'
-import { setTeamLogo } from '@/lib/server/ownerService'
+import { requireTeamOwner } from '@/lib/server/auth/token'
+import { setTeamLogo } from '@/lib/server/services/ownerService'
 
 type Ctx = { params: Promise<{ id: string }> }
 

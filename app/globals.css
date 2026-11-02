@@ -1,17 +1,30 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap');
-@import 'tailwindcss';
+/* The Rivalry League design system */
 
-/* ==========================================================================
-   The Rivalry League - "Warm Luxury Editorial Athletics" design system
-   (from the Stitch export). Old token names are kept and remapped so every
-   var(--gold) / var(--line) reference follows the new palette.
-   ========================================================================== */
+@layer base {
+  *, ::before, ::after, ::backdrop, ::file-selector-button { box-sizing: border-box; margin: 0; padding: 0; border: 0 solid; }
+  html { line-height: 1.5; -webkit-text-size-adjust: 100%; tab-size: 4; -webkit-tap-highlight-color: transparent; }
+  h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; }
+  a { color: inherit; text-decoration: inherit; }
+  b, strong { font-weight: bolder; }
+  small { font-size: 80%; }
+  ol, ul, menu { list-style: none; }
+  img, svg, video, canvas, audio, iframe, embed, object { display: block; vertical-align: middle; }
+  img, video { max-width: 100%; height: auto; }
+  table { text-indent: 0; border-color: inherit; border-collapse: collapse; }
+  button, input, select, optgroup, textarea, ::file-selector-button {
+    font: inherit; font-feature-settings: inherit; font-variation-settings: inherit; letter-spacing: inherit;
+    color: inherit; border-radius: 0; background-color: transparent; opacity: 1;
+  }
+  ::placeholder { opacity: 1; color: color-mix(in oklab, currentcolor 50%, transparent); }
+  textarea { resize: vertical; }
+  [hidden]:where(:not([hidden='until-found'])) { display: none !important; }
+}
+
 :root {
   --bg: #faf7f2;
   --bg-elevated: #f5f0e8;
   --panel: #fdfbf7;
   --panel-hover: #f5efeb;
-  --panel-card: #ffffff;
   --sand: #ebe3d5;
   --line: #e2d9cc;
   --line-strong: #d5c8b5;
@@ -25,22 +38,16 @@
   --tobacco: #8c5e3c;
   --champagne: #c5a880;
   --sand-fixed: #fedeb2;
-  --on-cognac: #f2bb97;
 
   --gold: #6e472b; /* legacy accent name -> cognac */
-  --gold-glow: rgba(110, 71, 43, 0.16);
   --red: #ba1a1a;
   --green: #3f7d4e;
-  --cyan: #8c5e3c;
-  --purple: #725b38;
 
   --shadow-sm: 0 1px 2px rgba(44, 36, 30, 0.06);
   --shadow-md: 0 4px 12px rgba(44, 36, 30, 0.1);
   --shadow-lg: 0 10px 30px rgba(44, 36, 30, 0.14);
 
-  --radius-sm: 0.25rem;
   --radius-md: 0.75rem;
-  --radius-lg: 1rem;
   --radius: 0.5rem;
 }
 
@@ -52,7 +59,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-space-grotesk), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -391,7 +398,6 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 }
 .filter-row button:hover { background: var(--sand); }
 .filter-row button.filter-active { background: var(--cognac); border-color: var(--cognac); color: #fff; }
-.filter-row.roles button { text-transform: none; letter-spacing: 0; font-size: 12px; padding: 7px 16px; }
 
 .segmented {
   display: flex;
@@ -618,8 +624,6 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 }
 .spinner-center:hover { transform: scale(1.05); }
 .spinner-center small { font-size: 9px; letter-spacing: 0.1em; margin-top: 3px; font-weight: 700; color: var(--sand-fixed); }
-.spinner-center .center-num { font-size: 28px; line-height: 1; font-weight: 700; }
-.spinner-center .center-label { font-size: 8px; font-weight: 700; letter-spacing: 0.1em; color: var(--sand-fixed); }
 .spin-icon-anim { animation: spinIconAnim 0.7s infinite linear; }
 @keyframes spinIconAnim { to { transform: rotate(360deg); } }
 
@@ -687,7 +691,6 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 .mobile-auction-switcher { display: flex; margin-bottom: 12px; }
 @media (min-width: 900px) { .mobile-auction-switcher { display: none; } .mobile-hidden { display: block !important; } }
 .mobile-hidden { display: none; }
-.mobile-visible { display: block; }
 
 /* Pool list (shared by Auction and Players) */
 .search-box { position: relative; margin-bottom: 10px; }
@@ -776,10 +779,9 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 .purse-box .meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
 .slots-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 10px; background: #faf3e6; border: 1px solid var(--line); font-size: 14px; font-weight: 600; }
 .slots-row .l { display: flex; align-items: center; gap: 8px; }
-.mix-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mix-grid { display: grid; gap: 10px; }
 .mix-box { background: var(--bg-elevated); border: 1px solid var(--line); border-radius: 12px; padding: 10px; min-height: 76px; }
 .mix-box small { display: block; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-light); font-weight: 600; margin-bottom: 6px; }
-.mix-box .chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .mix-box .pl { font-size: 14px; font-weight: 600; }
 .mix-box .pr { font-weight: 700; font-size: 14px; color: var(--primary); }
 .team-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -908,16 +910,7 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 .setup-modal textarea { background: var(--panel); }
 
 /* 3D coin toss */
-.coin-stage { perspective: 1000px; display: grid; place-items: center; margin: 18px 0; }
 .coin { width: 115px; height: 115px; position: relative; transform-style: preserve-3d; transition: transform 2.1s cubic-bezier(0.15, 0.85, 0.2, 1); }
-.coin-face {
-  position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; font-weight: 700; border: 4px solid var(--champagne); box-shadow: 0 8px 22px rgba(44, 36, 30, 0.3);
-}
-.coin-heads { background: radial-gradient(circle, #e7cf9f, #a9834a); color: #2c241e; }
-.coin-tails { background: radial-gradient(circle, #8c5e3c, #3a2412); color: #f2e2c8; transform: rotateY(180deg); }
-.coin-face span { font-size: 26px; letter-spacing: -0.01em; line-height: 1; }
-.coin-face small { font-size: 8px; letter-spacing: 0.12em; margin-top: 2px; font-weight: 700; }
 
 /* ------------------------------ Toast ----------------------------------- */
 .toast {
@@ -935,3 +928,60 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 @media (min-width: 900px) { .desktop-only { display: inline; } }
 
 @media (max-width: 460px) { .hide-xs { display: none; } }
+
+/* Adding players from text */
+.bulk-text {
+  width: 100%; height: 170px; margin-top: 8px; padding: 12px; resize: vertical; outline: none;
+  font-size: 14px; color: var(--espresso); background: #fff; border: 1px solid var(--line-strong); border-radius: 8px;
+}
+.bulk-hint { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.bulk-preview {
+  display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; font-size: 12px;
+  color: var(--muted); background: var(--panel-hover); border-radius: 8px;
+}
+.bulk-preview b { font-size: 13px; color: var(--espresso); }
+
+/* Win animation */
+.win-overlay {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px;
+  pointer-events: none; animation: win-fade 3.6s ease forwards;
+}
+.win-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 320px; padding: 22px 34px;
+  text-align: center; color: #fff; background: #2c241e; border: 2px solid #c5a06a; border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(44, 36, 30, .4); animation: win-pop .5s cubic-bezier(.2, 1.5, .4, 1);
+}
+.win-card svg { color: #e7cf9f; }
+.win-card small { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #e7cf9f; }
+.win-card b { font-size: 26px; line-height: 1.15; overflow-wrap: anywhere; }
+.win-card span { font-size: 13px; color: #f0e7da; }
+.win-confetti { position: absolute; inset: 0; overflow: hidden; }
+.win-confetti span {
+  position: absolute; top: -14px; left: calc(var(--i) * 7.2%); width: 8px; height: 13px; border-radius: 2px;
+  background: var(--c); animation: win-fall 2.4s ease-in calc(var(--i) * 45ms) forwards;
+}
+.win-confetti span:nth-child(3n + 1) { --c: #c5a06a; }
+.win-confetti span:nth-child(3n + 2) { --c: #6e472b; }
+.win-confetti span:nth-child(3n) { --c: #d9483b; }
+.win-confetti span:nth-child(1) { --i: 0; } .win-confetti span:nth-child(2) { --i: 9; }
+.win-confetti span:nth-child(3) { --i: 3; } .win-confetti span:nth-child(4) { --i: 12; }
+.win-confetti span:nth-child(5) { --i: 6; } .win-confetti span:nth-child(6) { --i: 1; }
+.win-confetti span:nth-child(7) { --i: 10; } .win-confetti span:nth-child(8) { --i: 4; }
+.win-confetti span:nth-child(9) { --i: 13; } .win-confetti span:nth-child(10) { --i: 7; }
+.win-confetti span:nth-child(11) { --i: 2; } .win-confetti span:nth-child(12) { --i: 11; }
+.win-confetti span:nth-child(13) { --i: 5; } .win-confetti span:nth-child(14) { --i: 8; }
+@keyframes win-pop { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
+@keyframes win-fall { to { transform: translateY(105vh) rotate(540deg); } }
+@keyframes win-fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .win-card { animation: none; }
+  .win-confetti { display: none; }
+}
+
+/* Owner's bought players */
+.my-squad ul { list-style: none; margin: 8px 0 0; padding: 0; }
+.my-squad li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+.my-squad-num { flex-shrink: 0; min-width: 32px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.my-squad-name { flex: 1; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
+.my-squad-price { flex-shrink: 0; font-size: 14px; }
+.my-squad-empty { margin-top: 8px; font-size: 13px; color: var(--muted); }

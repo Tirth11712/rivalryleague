@@ -1,137 +1,148 @@
-// Web Audio API Synthesizer for Auction and Tournament SFX
+// Auction and match sounds, synthesised with the Web Audio API so there are no files to load
+
+const MUTED_KEY = 'trl_muted'
+
+type Tone = {
+  type: OscillatorType
+  from: number
+  to?: number
+  volume: number
+  length: number
+  delay?: number
+}
 
 class SoundManager {
   private ctx: AudioContext | null = null
-  private muted: boolean = false
+  private muted = false
 
-  constructor() {
-    // Lazy initialized on first user interaction to comply with browser audio autoplay policy
+  /** Browsers keep audio silent until the first tap, so call this from one. */
+  unlock() {
+    this.context()
   }
 
-  private getContext(): AudioContext | null {
-    if (typeof window === 'undefined') return null
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
-      if (AudioCtx) {
-        this.ctx = new AudioCtx()
-      }
+  loadMuted(): boolean {
+    try {
+      this.muted = localStorage.getItem(MUTED_KEY) === '1'
+    } catch {
+      /* storage unavailable */
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume()
-    }
-    return this.ctx
-  }
-
-  public setMuted(muted: boolean) {
-    this.muted = muted
-  }
-
-  public isMuted(): boolean {
     return this.muted
   }
 
-  // Solid wooden gavel strike sound
-  public playHammer() {
-    if (this.muted) return
-    const ctx = this.getContext()
-    if (!ctx) return
-
-    const now = ctx.currentTime
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-
-    osc.type = 'triangle'
-    osc.frequency.setValueAtTime(140, now)
-    osc.frequency.exponentialRampToValueAtTime(35, now + 0.18)
-
-    gain.gain.setValueAtTime(0.7, now)
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22)
-
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-
-    osc.start(now)
-    osc.stop(now + 0.24)
-  }
-
-  // Metallic spinning coin chime for toss
-  public playCoinFlip() {
-    if (this.muted) return
-    const ctx = this.getContext()
-    if (!ctx) return
-
-    const now = ctx.currentTime
-    for (let i = 0; i < 4; i++) {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      const time = now + i * 0.08
-
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(800 + i * 160, time)
-
-      gain.gain.setValueAtTime(0.25, time)
-      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.07)
-
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-
-      osc.start(time)
-      osc.stop(time + 0.08)
+  setMuted(muted: boolean) {
+    this.muted = muted
+    try {
+      localStorage.setItem(MUTED_KEY, muted ? '1' : '0')
+    } catch {
+      /* storage unavailable */
     }
   }
 
-  // Click/tick sound for wheel slices
-  public playSpinnerTick() {
-    if (this.muted) return
-    const ctx = this.getContext()
-    if (!ctx) return
-
-    const now = ctx.currentTime
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(600, now)
-    osc.frequency.exponentialRampToValueAtTime(200, now + 0.04)
-
-    gain.gain.setValueAtTime(0.18, now)
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04)
-
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-
-    osc.start(now)
-    osc.stop(now + 0.05)
+  private context(): AudioContext | null {
+    if (typeof window === 'undefined' || !window.AudioContext) return null
+    this.ctx ??= new AudioContext()
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    return this.ctx
   }
 
-  // Triumphal chord for player sold
-  public playCheer() {
+  private play(tones: Tone[]) {
     if (this.muted) return
-    const ctx = this.getContext()
+    const ctx = this.context()
     if (!ctx) return
 
-    const notes = [440, 554.37, 659.25, 880] // A major chord
-    const now = ctx.currentTime
-
-    notes.forEach((freq, idx) => {
+    for (const { type, from, to, volume, length, delay = 0 } of tones) {
+      const start = ctx.currentTime + delay
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
-      const start = now + idx * 0.06
-
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(freq, start)
-
-      gain.gain.setValueAtTime(0.2, start)
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.35)
-
+      osc.type = type
+      osc.frequency.setValueAtTime(from, start)
+      if (to) osc.frequency.exponentialRampToValueAtTime(to, start + length)
+      gain.gain.setValueAtTime(volume, start)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + length)
       osc.connect(gain)
       gain.connect(ctx.destination)
-
       osc.start(start)
-      osc.stop(start + 0.38)
-    })
+      osc.stop(start + length + 0.02)
+    }
+  }
+
+  /** Superadmin pressed spin. */
+  playTick() {
+    this.play([{ type: 'square', from: 600, to: 200, volume: 0.18, length: 0.04 }])
+  }
+
+  /** The wheel's clicks, slowing down as it stops. */
+  playWheel(startsInMs: number, durationMs: number) {
+    const clicks = 26
+    this.play(
+      Array.from({ length: clicks }, (_, i) => ({
+        type: 'square' as const,
+        from: 520,
+        to: 240,
+        volume: 0.08,
+        length: 0.03,
+        delay: (startsInMs + durationMs * (1 - (1 - i / clicks) ** 2.4)) / 1000
+      }))
+    )
+  }
+
+  /** A player comes on the block. */
+  playHammer() {
+    this.play([{ type: 'triangle', from: 140, to: 35, volume: 0.7, length: 0.22 }])
+  }
+
+  /** A new top bid. */
+  playBid() {
+    this.play([
+      { type: 'sine', from: 660, volume: 0.2, length: 0.09 },
+      { type: 'sine', from: 880, volume: 0.2, length: 0.12, delay: 0.07 }
+    ])
+  }
+
+  /** A player is sold. */
+  playSold() {
+    this.play([
+      { type: 'triangle', from: 140, to: 35, volume: 0.6, length: 0.22 },
+      ...[440, 554.37, 659.25, 880].map((from, i) => ({
+        type: 'sine' as const,
+        from,
+        volume: 0.2,
+        length: 0.35,
+        delay: 0.14 + i * 0.06
+      }))
+    ])
+  }
+
+  /** A player goes unsold. */
+  playUnsold() {
+    this.play([{ type: 'sine', from: 330, to: 165, volume: 0.25, length: 0.4 }])
+  }
+
+  /** The coin in the air. */
+  playCoinFlip() {
+    this.play(
+      [0, 1, 2, 3].map(i => ({
+        type: 'sine' as const,
+        from: 800 + i * 160,
+        volume: 0.25,
+        length: 0.07,
+        delay: i * 0.08
+      }))
+    )
+  }
+
+  /** A team wins a match. */
+  playVictory() {
+    this.play(
+      [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5].map((from, i) => ({
+        type: 'triangle' as const,
+        from,
+        volume: 0.22,
+        length: i === 5 ? 0.6 : 0.2,
+        delay: i * 0.13
+      }))
+    )
   }
 }
 
 export const sounds = new SoundManager()
-

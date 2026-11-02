@@ -11,12 +11,11 @@ export function AddMatchModal({
 }: {
   teams: Team[]
   onClose: () => void
-  onAdd: (match: { teamA: string; teamB: string; date: string; time?: string; venue?: string; stage?: string }) => void
+  onAdd: (match: { teamA: string; teamB: string; date: string; venue?: string; stage?: string }) => void
 }) {
   const [teamA, setTeamA] = useState(teams[0]?.name || '')
   const [teamB, setTeamB] = useState(teams[1]?.name || '')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [time, setTime] = useState('18:00 IST')
   const [venue, setVenue] = useState('Premier Grounds')
   const [stage, setStage] = useState('League Match')
 
@@ -27,7 +26,6 @@ export function AddMatchModal({
       teamA,
       teamB,
       date,
-      time,
       venue,
       stage
     })
@@ -66,16 +64,10 @@ export function AddMatchModal({
             </label>
           </div>
 
-          <div className="field-row" style={{ marginTop: 0 }}>
-            <label>
-              DATE
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
-            </label>
-            <label>
-              TIME
-              <input value={time} onChange={e => setTime(e.target.value)} placeholder="e.g. 19:30 IST" />
-            </label>
-          </div>
+          <label>
+            DATE
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
+          </label>
 
           <label>
             VENUE

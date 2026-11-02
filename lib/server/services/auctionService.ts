@@ -1,5 +1,5 @@
-import { readDb, writeDb, AuctionState, DatabaseSchema, DbConflictError, Player, Team } from './db'
-import { maxBidFor, WHEEL_REVEAL_PAUSE_MS, WHEEL_SPIN_MS } from '@/lib/shared/rules'
+import { readDb, writeDb, AuctionState, DatabaseSchema, DbConflictError, Player, Team } from '../db'
+import { maxBidFor, WHEEL_LEAD_MS, WHEEL_REVEAL_PAUSE_MS, WHEEL_SPIN_MS } from '@/lib/shared/rules'
 
 /** Gives a sold player's price and squad slot back to the team that bought them. */
 function refundSale(db: DatabaseSchema, player: Player) {
@@ -31,14 +31,7 @@ export async function getAuctionSnapshot(): Promise<{
       leader: null,
       teams: db.teams,
       players: db.players,
-      spin: {
-        id: spin.startedAt,
-        poolIds: spin.poolIds,
-        landIndex: spin.landIndex,
-        unsoldRound: spin.unsoldRound,
-        elapsedMs: Math.max(0, Date.now() - spin.startedAt),
-        durationMs: WHEEL_SPIN_MS
-      }
+      spin: toLiveSpin(spin)
     }
   }
 
@@ -53,8 +46,19 @@ export type LiveSpin = {
   poolIds: number[]
   landIndex: number
   unsoldRound: boolean
-  elapsedMs: number
+  elapsedMs: number // negative until the wheel starts turning
   durationMs: number
+}
+
+function toLiveSpin(spin: NonNullable<AuctionState['spin']>): LiveSpin {
+  return {
+    id: spin.startedAt,
+    poolIds: spin.poolIds,
+    landIndex: spin.landIndex,
+    unsoldRound: spin.unsoldRound,
+    elapsedMs: Date.now() - spin.startedAt,
+    durationMs: WHEEL_SPIN_MS
+  }
 }
 
 function isSpinning(state: AuctionState): boolean {
@@ -69,8 +73,17 @@ export async function spinWheel(scope: WheelScope = 'auto'): Promise<{
   auctionState?: AuctionState
   message: string
   isUnsoldRound?: boolean
+  spin?: LiveSpin
 }> {
   const db = await readDb()
+  if (isSpinning(db.auctionState)) {
+    return { success: false, message: 'The wheel is still spinning' }
+  }
+  const onBlock = db.players.find(p => p.id === db.auctionState.currentPlayerId)
+  if (onBlock) {
+    return { success: false, message: `Mark #${onBlock.number} (${onBlock.name}) sold or unsold before spinning again` }
+  }
+
   const upcoming = db.players.filter(p => p.status === 'Upcoming')
   const unsold = db.players.filter(p => p.status === 'Unsold')
 
@@ -100,22 +113,24 @@ export async function spinWheel(scope: WheelScope = 'auto'): Promise<{
   }
 
   const randomPlayer = candidatePool[Math.floor(Math.random() * candidatePool.length)]
+  const spin = {
+    startedAt: Date.now() + WHEEL_LEAD_MS,
+    poolIds: candidatePool.map(p => p.id),
+    landIndex: candidatePool.indexOf(randomPlayer),
+    unsoldRound: isUnsoldRound
+  }
   db.auctionState = {
     currentPlayerId: randomPlayer.id,
     currentBid: randomPlayer.base || 500,
     leaderTeamId: null,
     leaderTeamName: null,
     lastUpdated: new Date().toISOString(),
-    spin: {
-      startedAt: Date.now(),
-      poolIds: candidatePool.map(p => p.id),
-      landIndex: candidatePool.indexOf(randomPlayer),
-      unsoldRound: isUnsoldRound
-    }
+    spin
   }
 
   await writeDb(db)
   return {
+    spin: toLiveSpin(spin),
     success: true,
     message: isUnsoldRound
       ? `[RE-AUCTION ROUND] Unsold Player #${randomPlayer.number} (${randomPlayer.name}) drawn on the block!`
@@ -156,6 +171,9 @@ export async function nominatePlayer(playerId: number): Promise<{
   message: string
 }> {
   const db = await readDb()
+  if (isSpinning(db.auctionState)) {
+    return { success: false, message: 'The wheel is still spinning' }
+  }
   const target = db.players.find(p => p.id === playerId)
 
   if (!target) {

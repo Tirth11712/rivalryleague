@@ -120,7 +120,7 @@ export function Topbar({
         </nav>
 
         <div className="top-actions">
-          <div className={isAuctioneer ? 'top-pill hide-xs' : 'top-pill'} title="Players per franchise">
+          <div className="top-pill hide-xs" title="Players per franchise">
             <Users size={13} />
             {isAuctioneer ? (
               <select
@@ -135,25 +135,25 @@ export function Topbar({
             )}
           </div>
 
+          <button
+            className="icon-btn"
+            onClick={onToggleSound}
+            aria-label={isMuted ? 'Turn sound on' : 'Turn sound off'}
+            aria-pressed={!isMuted}
+            title={isMuted ? 'Turn sound on' : 'Turn sound off'}
+          >
+            {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </button>
+
           {isAuctioneer && (
-            <>
-              <button
-                className="icon-btn"
-                onClick={onToggleSound}
-                aria-label={isMuted ? 'Unmute sound' : 'Mute sound'}
-                title={isMuted ? 'Unmute sound' : 'Mute sound'}
-              >
-                {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-              </button>
-              <button
-                className="icon-btn"
-                onClick={onOpenSettings}
-                aria-label="League settings"
-                title="League settings"
-              >
-                <Settings2 size={15} />
-              </button>
-            </>
+            <button
+              className="icon-btn"
+              onClick={onOpenSettings}
+              aria-label="League settings"
+              title="League settings"
+            >
+              <Settings2 size={15} />
+            </button>
           )}
 
           <button

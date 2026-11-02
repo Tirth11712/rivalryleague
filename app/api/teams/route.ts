@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { requireAuth } from '@/lib/server/token'
-import { getAllTeams, createTeam, deleteTeam } from '@/lib/server/teamService'
-import { getAllPlayers } from '@/lib/server/playerService'
+import { requireAuth } from '@/lib/server/auth/token'
+import { getAllTeams, createTeam, deleteTeam } from '@/lib/server/services/teamService'
+import { getAllPlayers } from '@/lib/server/services/playerService'
 
 export async function GET() {
   try {

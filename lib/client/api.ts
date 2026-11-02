@@ -88,8 +88,22 @@ export type LiveSpin = {
   poolIds: number[]
   landIndex: number
   unsoldRound: boolean
-  elapsedMs: number
+  elapsedMs: number // negative until the wheel starts turning
   durationMs: number
+}
+
+export type ScheduledSpin = LiveSpin & { startsAt: number }
+
+const MAX_REPLY_DELAY_MS = 300
+
+/**
+ * Turns the server's timing into a start time on this device's clock. The reply's travel time is
+ * about half the round trip, capped because a stalled request says nothing about the way back.
+ */
+export function scheduleSpin(spin: LiveSpin, sentAt: number): ScheduledSpin {
+  const now = performance.now()
+  const replyDelay = Math.min((now - sentAt) / 2, MAX_REPLY_DELAY_MS)
+  return { ...spin, startsAt: now - replyDelay - spin.elapsedMs }
 }
 
 export type OwnerDetails = { teamName: string; ownerName: string; loginId: string; password: string }
@@ -136,7 +150,6 @@ export const apiLeague = {
 
 // 3. Teams API
 export const apiTeams = {
-  getAll: () => request<{ success: boolean; teams: Team[] }>('/api/teams'),
   create: (data: { name: string; short?: string; color?: string; owner?: string; purse?: number; tagline?: string }) =>
     request<{ success: boolean; team?: Team; teams: Team[]; message?: string }>('/api/teams', {
       method: 'POST',
@@ -155,13 +168,12 @@ export const apiTeams = {
 
 // 4. Players API
 export const apiPlayers = {
-  getAll: () => request<{ success: boolean; players: Player[] }>('/api/players'),
-  create: (data: { name: string; role?: string; rating?: number; base?: number; style?: string }) =>
+  create: (data: { name: string; base?: number }) =>
     request<{ success: boolean; player?: Player; players: Player[]; message?: string }>('/api/players', {
       method: 'POST',
       body: JSON.stringify({ ...data, base: data.base || 500 })
     }),
-  bulkImport: (players: Array<{ name: string; role?: string; base?: number; rating?: number; style?: string }>) =>
+  bulkImport: (players: Array<{ name: string; base?: number }>) =>
     request<{ success: boolean; message: string; players: Player[] }>('/api/players', {
       method: 'POST',
       body: JSON.stringify({ bulk: true, players })
@@ -196,6 +208,7 @@ export const apiAuction = {
       auctionState: AuctionState
       message: string
       isUnsoldRound?: boolean
+      spin: LiveSpin
     }>('/api/auction', {
       method: 'POST',
       body: JSON.stringify({ action: 'spin', scope })
@@ -265,7 +278,7 @@ export const apiAuction = {
 // 6. Matches & Toss API
 export const apiMatches = {
   getAll: () => request<{ success: boolean; matches: Match[] }>('/api/matches'),
-  create: (data: { teamA: string; teamB: string; date: string; time?: string; venue?: string; stage?: string }) =>
+  create: (data: { teamA: string; teamB: string; date: string; venue?: string; stage?: string }) =>
     request<{ success: boolean; match?: Match; matches: Match[]; message?: string }>('/api/matches', {
       method: 'POST',
       body: JSON.stringify(data)

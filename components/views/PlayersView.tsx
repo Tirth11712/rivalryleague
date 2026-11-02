@@ -1,9 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Plus, FileText, Gavel, Search, Swords, Trash2, Zap, RotateCcw, Shield } from 'lucide-react'
 import type { Player } from '@/lib/server/db'
-import { PLAYER_ROLES } from '@/lib/shared/roles'
 
 const STATUS_BY_FILTER: Record<string, Player['status'] | undefined> = {
   UPCOMING: 'Upcoming',
@@ -44,8 +43,6 @@ export function PlayersView({
   onDirectSell: (player?: Player) => void
   onOpenAuction: () => void
 }) {
-  const [cricketRole, setCricketRole] = useState('ALL')
-
   const count = (status: Player['status']) => players.filter(p => p.status === status).length
   const filters = [
     { id: 'ALL', label: 'All', count: players.length },
@@ -59,12 +56,9 @@ export function PlayersView({
     const status = STATUS_BY_FILTER[roleFilter]
     return players.filter(p => {
       if (status && p.status !== status) return false
-      if (cricketRole !== 'ALL' && p.role !== cricketRole) return false
       return !q || p.name.toLowerCase().includes(q) || String(p.number || '').includes(q)
     })
-  }, [players, search, roleFilter, cricketRole])
-
-  const hasRoles = players.some(p => p.role)
+  }, [players, search, roleFilter])
 
   return (
     <div>
@@ -74,7 +68,7 @@ export function PlayersView({
         </div>
         {isAuctioneer && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="ghost-btn btn-sm" onClick={onBulkImport}><FileText size={14} /> Bulk Import</button>
+            <button className="ghost-btn btn-sm" onClick={onBulkImport}><FileText size={14} /> Add from Text</button>
             <button className="primary-btn btn-sm" onClick={onAddPlayer}><Plus size={14} /> Add Player</button>
           </div>
         )}
@@ -101,23 +95,6 @@ export function PlayersView({
           </button>
         ))}
       </div>
-
-      {hasRoles && (
-        <div className="filter-row roles">
-          <button className={cricketRole === 'ALL' ? 'filter-active' : ''} onClick={() => setCricketRole('ALL')}>
-            All Roles
-          </button>
-          {PLAYER_ROLES.map(role => (
-            <button
-              key={role}
-              className={cricketRole === role ? 'filter-active' : ''}
-              onClick={() => setCricketRole(role)}
-            >
-              {role}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="rule-banner">
         <div className="l">
@@ -155,7 +132,7 @@ export function PlayersView({
                 </span>
                 <div className="info">
                   <h3>{p.name}</h3>
-                  <div className="sub">{[p.role, p.style].filter(Boolean).join(' · ') || `Player #${p.number}`}</div>
+                  <div className="sub">Player #{p.number}</div>
                 </div>
                 <span className={p.status === 'Sold' ? 'pill dark' : p.status === 'Unsold' ? 'pill red' : 'pill'}>
                   {p.status === 'Upcoming' ? 'In pool' : p.status}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import type { Player, Team, Match } from '@/lib/server/db'
 import {
   apiAuth,
@@ -10,23 +11,27 @@ import {
   apiAuction,
   apiMatches,
   apiOwner,
-  type LiveSpin,
+  scheduleSpin,
+  type ScheduledSpin,
   type OwnerDetails,
   getAuthToken,
   getOwnerTeamId,
   setAuthToken,
   setOwnerToken
 } from '@/lib/client/api'
+import type { ParsedPlayer } from '@/lib/shared/parsePlayerList'
 import { sounds } from '@/lib/client/sound'
+import { useLiveEvents } from '@/lib/client/useLiveEvents'
 
 // Layout & Common Components
 import { Topbar } from '@/components/layout/Topbar'
 import { Toast } from '@/components/common/Toast'
+import { WinBanner } from '@/components/common/WinBanner'
 
 // Views
 import { HomeView } from '@/components/views/HomeView'
 import { AuctionView, type WheelScope } from '@/components/views/AuctionView'
-import { WHEEL_REVEAL_PAUSE_MS, WHEEL_SPIN_MS } from '@/lib/shared/rules'
+import { WHEEL_REVEAL_PAUSE_MS } from '@/lib/shared/rules'
 import { SpectatorView } from '@/components/views/SpectatorView'
 import { TeamsView } from '@/components/views/TeamsView'
 import { PlayersView } from '@/components/views/PlayersView'
@@ -34,18 +39,18 @@ import { ScheduleView } from '@/components/views/ScheduleView'
 import { ResultsView } from '@/components/views/ResultsView'
 import { StandingsView } from '@/components/views/StandingsView'
 
-// Modals
-import { AuthModal } from '@/components/modals/AuthModal'
-import { DirectSellModal } from '@/components/modals/DirectSellModal'
-import { AddPlayerModal } from '@/components/modals/AddPlayerModal'
-import { BulkImportModal } from '@/components/modals/BulkImportModal'
-import { AddTeamModal } from '@/components/modals/AddTeamModal'
-import { AdjustBudgetModal } from '@/components/modals/AdjustBudgetModal'
-import { AddMatchModal } from '@/components/modals/AddMatchModal'
-import { TossModal } from '@/components/modals/TossModal'
-import { ResultModal } from '@/components/modals/ResultModal'
-import { OwnerLoginModal } from '@/components/modals/OwnerLoginModal'
-import { SetupModal } from '@/components/modals/SetupModal'
+// Popups load the first time they open
+const AuthModal = dynamic(() => import('@/components/modals/AuthModal').then(m => m.AuthModal))
+const DirectSellModal = dynamic(() => import('@/components/modals/DirectSellModal').then(m => m.DirectSellModal))
+const AddPlayerModal = dynamic(() => import('@/components/modals/AddPlayerModal').then(m => m.AddPlayerModal))
+const BulkImportModal = dynamic(() => import('@/components/modals/BulkImportModal').then(m => m.BulkImportModal))
+const AddTeamModal = dynamic(() => import('@/components/modals/AddTeamModal').then(m => m.AddTeamModal))
+const AdjustBudgetModal = dynamic(() => import('@/components/modals/AdjustBudgetModal').then(m => m.AdjustBudgetModal))
+const AddMatchModal = dynamic(() => import('@/components/modals/AddMatchModal').then(m => m.AddMatchModal))
+const TossModal = dynamic(() => import('@/components/modals/TossModal').then(m => m.TossModal))
+const ResultModal = dynamic(() => import('@/components/modals/ResultModal').then(m => m.ResultModal))
+const OwnerLoginModal = dynamic(() => import('@/components/modals/OwnerLoginModal').then(m => m.OwnerLoginModal))
+const SetupModal = dynamic(() => import('@/components/modals/SetupModal').then(m => m.SetupModal))
 
 export default function Page() {
   // Navigation & Core Entity State
@@ -56,9 +61,8 @@ export default function Page() {
   const [current, setCurrent] = useState<Player | null>(null)
   const [bid, setBid] = useState(0)
   const [leader, setLeader] = useState<Team | null>(null)
-  const [isSpinning, setIsSpinning] = useState(false)
-  const [drawnPlayerId, setDrawnPlayerId] = useState<number | null>(null)
-  const [liveSpin, setLiveSpin] = useState<LiveSpin | null>(null)
+  const [spinRequested, setSpinRequested] = useState(false)
+  const [liveSpin, setLiveSpin] = useState<ScheduledSpin | null>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [toast, setToast] = useState('')
   const [search, setSearch] = useState('')
@@ -105,6 +109,10 @@ export default function Page() {
   const toastTimer = useRef<number | undefined>(undefined)
   const lastSync = useRef('')
   const lastAuctionSync = useRef('')
+  // Syncs overlap on a slow connection, so a late answer must not undo a newer one
+  const syncsStarted = useRef(0)
+  const newestSyncApplied = useRef(0)
+  const wasSpinning = useRef(false)
 
   const notify = (msg: string) => {
     setToast(msg)
@@ -115,10 +123,13 @@ export default function Page() {
   // Load and synchronize state from backend
   const loadAuction = useCallback(async () => {
     try {
+      const sync = ++syncsStarted.current
+      const sentAt = performance.now()
       const { spin, ...auctionData } = await apiAuction.getState()
-      if (!auctionData.success) return
+      if (!auctionData.success || sync < newestSyncApplied.current) return
+      newestSyncApplied.current = sync
 
-      const incoming = spin ?? null
+      const incoming = spin ? scheduleSpin(spin, sentAt) : null
       setLiveSpin(prev => (prev?.id === incoming?.id ? prev : incoming))
 
       // Skip re-render (and clobbering of in-progress inputs) when nothing changed
@@ -188,22 +199,53 @@ export default function Page() {
     addMatchModalOpen || directSellModalOpen || !!budgetModalTeam || !!tossModalMatch || !!resultModalMatch || !!ownerLoginTeam
 
   // Live auto-sync so a second screen (projector / spectators) follows the auction
-  const watchingAuction = page === 'auction' && !isAuctioneer
+  const watchingAuction = page === 'auction'
   const auctionSyncMs = liveSpin ? 700 : current ? 2000 : watchingAuction ? 1500 : 4000 // catches a spin as it starts
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (!document.hidden && !anyModalOpen && !isSpinning) loadAuction()
+      if (!document.hidden && !anyModalOpen && !spinRequested) loadAuction()
     }, auctionSyncMs)
     return () => window.clearInterval(id)
-  }, [loadAuction, anyModalOpen, isSpinning, auctionSyncMs])
+  }, [loadAuction, anyModalOpen, spinRequested, auctionSyncMs])
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (!document.hidden && !anyModalOpen && !isSpinning) loadState()
+      if (!document.hidden && !anyModalOpen && !spinRequested) loadState()
     }, 6000)
     return () => window.clearInterval(id)
-  }, [loadState, anyModalOpen, isSpinning])
+  }, [loadState, anyModalOpen, spinRequested])
+
+  // Ask for the drawn player as soon as the spin is over, so no screen waits for its next sync
+  useEffect(() => {
+    if (!liveSpin) return
+    const revealAt = liveSpin.startsAt + liveSpin.durationMs + WHEEL_REVEAL_PAUSE_MS + 100
+    const id = window.setTimeout(loadAuction, Math.max(0, revealAt - performance.now()))
+    return () => window.clearTimeout(id)
+  }, [liveSpin, loadAuction])
+
+  const celebration = useLiveEvents({ players, matches, current, bid, leader, liveSpin })
+
+  useEffect(() => {
+    setIsMuted(sounds.loadMuted())
+    const unlock = () => sounds.unlock()
+    window.addEventListener('pointerdown', unlock, { once: true })
+    return () => window.removeEventListener('pointerdown', unlock)
+  }, [])
+
+  // Tell the superadmin who was drawn when the player appears on every screen
+  useEffect(() => {
+    if (wasSpinning.current && !liveSpin && current && isAuctioneer) {
+      if (teams.length > 0) setAwardTeam(teams[0].name)
+      notify(
+        current.status === 'Unsold'
+          ? `[RE-AUCTION ROUND] Unsold Player #${current.number} (${current.name}) drawn on the block!`
+          : `Player #${current.number} (${current.name}) drawn on the block!`
+      )
+    }
+    wasSpinning.current = !!liveSpin
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per reveal
+  }, [liveSpin, current])
 
   // Auctioneer Gatekeeper Check
   const guardAuctioneer = (action: () => void) => {
@@ -277,7 +319,6 @@ export default function Page() {
   const handleOwnerBid = async (increment: number) => {
     try {
       const data = await apiOwner.bid(increment)
-      if (data.success) sounds.playHammer()
       notify(data.message)
     } catch {
       notify('Failed to place bid')
@@ -338,6 +379,7 @@ export default function Page() {
     const nextMuted = !isMuted
     setIsMuted(nextMuted)
     sounds.setMuted(nextMuted)
+    sounds.playTick()
   }
 
   // League Settings Operations
@@ -396,12 +438,7 @@ export default function Page() {
     guardAuctioneer(async () => {
       try {
         const data = await apiAuction.reopenAllUnsold()
-        if (data.success) {
-          sounds.playCheer()
-          notify(data.message)
-        } else {
-          notify(data.message)
-        }
+        notify(data.message)
       } catch {
         notify('Failed to restore unsold players')
       } finally {
@@ -413,45 +450,26 @@ export default function Page() {
   // Auction Room Operations
   const handleSpin = () => {
     guardAuctioneer(async () => {
-      if (isSpinning || current) return
-      setIsSpinning(true)
-      sounds.playSpinnerTick()
-      setCurrent(null)
-      setLeader(null)
-      setBid(0)
-
-      const finish = () => {
-        setDrawnPlayerId(null)
-        setIsSpinning(false)
-        loadState()
-      }
+      if (spinRequested || liveSpin || current) return
+      setSpinRequested(true)
+      sounds.playTick()
 
       try {
-        // The server picks first, so the wheel can land on the player it really drew
+        // The server picks and schedules the spin; this screen then plays it like every other one
+        const sentAt = performance.now()
         const data = await apiAuction.spin(wheelScope)
-        if (!data.success) {
+        if (data.success) {
+          newestSyncApplied.current = ++syncsStarted.current // older syncs predate this spin
+          setLiveSpin(scheduleSpin(data.spin, sentAt))
+        } else {
           notify(data.message)
-          finish()
-          return
+          loadState()
         }
-        setDrawnPlayerId(data.player.id)
-        window.setTimeout(() => {
-          setCurrent(data.player)
-          const initialBase = data.player.base || 500
-          setBid(initialBase)
-          setAwardPrice(initialBase)
-          if (teams.length > 0) setAwardTeam(teams[0].name)
-          sounds.playHammer()
-          notify(
-            data.isUnsoldRound
-              ? `[RE-AUCTION ROUND] Unsold Player #${data.player.number} (${data.player.name}) drawn on the block!`
-              : `Player #${data.player.number} (${data.player.name}) drawn on the block!`
-          )
-          finish()
-        }, WHEEL_SPIN_MS + WHEEL_REVEAL_PAUSE_MS)
       } catch {
         notify('Failed to draw from wheel')
-        finish()
+        loadState()
+      } finally {
+        setSpinRequested(false)
       }
     })
   }
@@ -466,7 +484,6 @@ export default function Page() {
           setBid(initialBase)
           setAwardPrice(initialBase)
           if (teams.length > 0) setAwardTeam(teams[0].name)
-          sounds.playHammer()
           notify(`Player #${data.player.number} (${data.player.name}) on the block at ₹${initialBase}`)
         } else {
           notify(data.message)
@@ -508,7 +525,6 @@ export default function Page() {
           setLeader(team)
           setAwardPrice(nextBid)
           setAwardTeam(team.name)
-          sounds.playHammer()
           notify(`₹${nextBid.toLocaleString()} bid for ${team.name}`)
         } else {
           notify(data.message)
@@ -541,7 +557,6 @@ export default function Page() {
       try {
         const data = await apiAuction.sell(awardTeam, awardPrice, current.id, bid)
         if (data.success) {
-          sounds.playCheer()
           notify(data.message)
           setCurrent(null)
           setLeader(null)
@@ -562,7 +577,6 @@ export default function Page() {
       try {
         const data = await apiAuction.sell(teamName, price, playerId)
         if (data.success) {
-          sounds.playCheer()
           notify(data.message)
           setDirectSellModalOpen(false)
           setDirectSellPlayer(null)
@@ -698,7 +712,6 @@ export default function Page() {
   const handleAddPlayer = async (p: {
     name: string
     base: number
-    role?: string
   }) => {
     guardAuctioneer(async () => {
       try {
@@ -717,21 +730,12 @@ export default function Page() {
     })
   }
 
-  const handleBulkImport = async (text: string) => {
+  const handleBulkImport = async (list: ParsedPlayer[]) => {
     guardAuctioneer(async () => {
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-      const list = lines.map(line => {
-        const parts = line.split(',').map(s => s.trim())
-        return {
-          name: parts[0] || 'Player',
-          base: Number(parts[1]) || 500,
-          role: parts[2] || undefined
-        }
-      })
       try {
         const data = await apiPlayers.bulkImport(list)
         if (data.success) {
-          notify(`Imported ${list.length} players`)
+          notify(`Added ${list.length} player${list.length === 1 ? '' : 's'}`)
           setBulkModalOpen(false)
         } else {
           notify((data as { message?: string }).message || 'Could not import players')
@@ -777,7 +781,6 @@ export default function Page() {
     teamA: string
     teamB: string
     date: string
-    time?: string
     venue?: string
     stage?: string
   }) => {
@@ -805,11 +808,7 @@ export default function Page() {
       }
       try {
         const data = await apiMatches.generateRoundRobin()
-        if (data.success) {
-          notify(data.message)
-        } else {
-          notify(data.message)
-        }
+        notify(data.message)
       } catch {
         notify('Failed to generate tournament fixtures')
       } finally {
@@ -843,7 +842,6 @@ export default function Page() {
       try {
         const data = await apiMatches.recordToss(matchId, tossWinner, tossDecision)
         if (data.success) {
-          sounds.playCheer()
           notify(data.message)
           setTossModalMatch(null)
         } else {
@@ -865,7 +863,6 @@ export default function Page() {
       try {
         const data = await apiMatches.recordResult(matchId, payload)
         if (data.success) {
-          sounds.playCheer()
           notify(data.message)
           setResultModalMatch(null)
         } else {
@@ -892,7 +889,6 @@ export default function Page() {
           teamA: teams[0].name,
           teamB: teams[1].name,
           date: new Date().toISOString().split('T')[0],
-          time: '18:00 IST',
           venue: 'Premier Arena',
           status: 'Scheduled'
         })
@@ -981,8 +977,8 @@ export default function Page() {
             current={current}
             bid={bid}
             leader={leader}
-            spinning={isSpinning}
-            drawnPlayerId={drawnPlayerId}
+            spinRequested={spinRequested}
+            liveSpin={liveSpin}
             wheelScope={wheelScope}
             setWheelScope={setWheelScope}
             awardTeam={awardTeam}
@@ -1122,6 +1118,7 @@ export default function Page() {
         <BulkImportModal
           onClose={() => setBulkModalOpen(false)}
           onImport={handleBulkImport}
+          existingNames={players.map(p => p.name)}
           nextNumber={nextPlayerNumber}
         />
       )}
@@ -1187,6 +1184,7 @@ export default function Page() {
       )}
 
       <Toast message={toast} />
+      <WinBanner celebration={celebration} />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { readDb, writeDb, Player, computeInitials } from './db'
+import { readDb, writeDb, Player, computeInitials } from '../db'
 
 export async function getAllPlayers(): Promise<Player[]> {
   const db = await readDb()
@@ -7,10 +7,7 @@ export async function getAllPlayers(): Promise<Player[]> {
 
 export async function createPlayer(data: {
   name: string
-  role?: string
-  rating?: number
   base?: number
-  style?: string
 }): Promise<{ success: boolean; player?: Player; message?: string }> {
   if (!data.name || !data.name.trim()) {
     return { success: false, message: 'Player name is required' }
@@ -25,7 +22,6 @@ export async function createPlayer(data: {
     number: playerNumber,
     name: data.name.trim(),
     base: Number(data.base) || 500,
-    role: data.role?.trim() || undefined,
     status: 'Upcoming',
     initials: computeInitials(data.name)
   }
@@ -36,7 +32,7 @@ export async function createPlayer(data: {
 }
 
 export async function bulkImportPlayers(
-  list: Array<{ name: string; role?: string; base?: number; rating?: number; style?: string }>
+  list: Array<{ name: string; base?: number }>
 ): Promise<{ success: boolean; count: number; players: Player[] }> {
   const db = await readDb()
   let nextNum = db.players.reduce((max, p) => Math.max(max, p.number || 0), 0) + 1
@@ -48,7 +44,6 @@ export async function bulkImportPlayers(
       number: assignedNumber,
       name: p.name?.trim() || `Player #${assignedNumber}`,
       base: Number(p.base) || 500,
-      role: p.role?.trim() || undefined,
       status: 'Upcoming',
       initials: computeInitials(p.name || 'PL')
     }

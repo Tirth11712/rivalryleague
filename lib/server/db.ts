@@ -6,14 +6,11 @@ export type Player = {
   id: number
   number: number // Sequential player number (1, 2, 3...)
   name: string
-  role?: string
-  rating?: number
   base: number
   status: 'Upcoming' | 'Sold' | 'Unsold'
   soldTo?: string
   soldPrice?: number
   initials: string
-  style?: string
 }
 
 export type Team = {
@@ -43,7 +40,6 @@ export type Match = {
   teamA: string
   teamB: string
   date: string
-  time: string
   venue: string
   status: 'Scheduled' | 'Toss Done' | 'Live' | 'Completed'
   tossWinner?: string
@@ -173,11 +169,23 @@ async function ensureNeonDb(sql: ReturnType<typeof neon>): Promise<void> {
 // -------------------------------------------------------------
 // Local JSON File Fallback (for offline or local testing)
 // -------------------------------------------------------------
+/** A read can land in the middle of another request's save, so an unreadable file gets a few more tries. */
+async function readLocalFile(): Promise<DatabaseSchema> {
+  for (let attempt = 0; ; attempt++) {
+    const content = await fs.readFile(DB_FILE, 'utf-8')
+    try {
+      return JSON.parse(content) as DatabaseSchema
+    } catch (err) {
+      if (attempt >= 20) throw err
+      await new Promise(resolve => setTimeout(resolve, 25))
+    }
+  }
+}
+
 async function ensureLocalDb(): Promise<DatabaseSchema> {
   try {
     await fs.mkdir(DB_DIR, { recursive: true })
-    const content = await fs.readFile(DB_FILE, 'utf-8')
-    const parsed = JSON.parse(content) as DatabaseSchema
+    const parsed = await readLocalFile()
     let changed = false
     if (!parsed.matches) {
       parsed.matches = []
@@ -195,7 +203,9 @@ async function ensureLocalDb(): Promise<DatabaseSchema> {
       await fs.writeFile(DB_FILE, JSON.stringify(parsed, null, 2), 'utf-8')
     }
     return parsed
-  } catch {
+  } catch (err) {
+    // Only a missing file starts fresh; anything else must never replace saved data
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
     await fs.writeFile(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8')
     return initialData
   }
@@ -212,23 +222,7 @@ export async function readDb(): Promise<DatabaseSchema> {
       const rows = (await sql`
         SELECT data FROM auction_store WHERE id = 'default' LIMIT 1;
       `) as Array<Record<string, any>>
-      if (rows && rows.length > 0 && rows[0].data) {
-        const data = rows[0].data as DatabaseSchema
-        if (!data.league?.name || data.league.name === 'Sunday Premier Auction') {
-          if (!data.league) {
-            data.league = {
-              name: 'The Rivalry League',
-              season: '01',
-              defaultPurse: 20000,
-              maxSquadSize: 5
-            }
-          } else {
-            data.league.name = 'The Rivalry League'
-          }
-          writeDb(data).catch(() => {})
-        }
-        return data
-      }
+      if (rows.length > 0 && rows[0].data) return rows[0].data as DatabaseSchema
     } catch (err) {
       if (process.env.VERCEL) throw err
       console.error('[Neon Postgres Read Warning, falling back to local file]:', err)

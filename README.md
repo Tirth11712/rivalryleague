@@ -2,7 +2,7 @@
 
 A live cricket auction and league app. The superadmin spins a wheel to draw each player, team owners bid from their own phones, and every screen follows along in real time. After the auction it runs the league too: fixtures, tosses, results and a points table with net run rate.
 
-It runs as a website on Vercel and as an Android app that loads the same site, so most updates reach phones without a reinstall.
+It runs as a website on Vercel and as an Android app that loads the same site, so most updates reach phones without a reinstall. iPhone users can add the website to their Home Screen.
 
 **Live site:** https://rivalryleague.vercel.app
 
@@ -10,8 +10,8 @@ It runs as a website on Vercel and as an Android app that loads the same site, s
 
 | Role | Sign-in | Can do |
 |---|---|---|
-| **Superadmin** | Password | Spin the wheel, sell players, manage teams, players, fixtures, results and settings, and assign owners |
-| **Team owner** | Login ID and password set by the superadmin | Bid for their own team and upload their team's logo |
+| **Superadmin** | Password | Spin the wheel, sell players, set team budgets, manage teams, players, fixtures, results and settings, and assign owners |
+| **Team owner** | Login ID and password set by the superadmin | Bid for their own team, see their squad and upload their team's logo |
 | **Viewer** | None | Watch the auction, squads, fixtures and leaderboard |
 
 Players do not have logins.
@@ -19,10 +19,13 @@ Players do not have logins.
 ## Features
 
 **Auction**
-- Spin wheel, shown live on every screen on the Auction tab. The drawn player stays hidden, and bidding stays closed, until the wheel stops
+- Spin wheel, shown live on every screen on the Auction tab. Every screen gets a 2.5 second "Get ready", then the wheel turns together. The drawn player stays hidden, and bidding stays closed, until it stops
 - Wheel filters: Available, Unsold or Everyone
 - Direct nomination and direct sale from the player pool
 - Owners bid in steps of ₹100, ₹250, ₹500 or ₹1,000 from their phones
+- **My squad:** owners see the players they have bought, with prices, under their bid buttons
+- Sold animation and sounds for spins, bids, sales and unsold players on every screen, with an on/off button in the header
+- Add players one at a time, or paste a whole list under **Players → Add from Text**. List numbers and bullets are removed, duplicates are skipped, and a line can end with a base price
 - Live sync across screens, about every 2 seconds during bidding
 - Re-auction of sold or unsold players, with automatic refunds
 - Keyboard shortcuts on desktop: `S` spin, `1`-`9` bid for a team, `Enter` sell, `U` unsold
@@ -31,14 +34,17 @@ Players do not have logins.
 - A team cannot go over its squad limit or its purse
 - **Max bid:** a team must keep the ₹500 base price for each other open squad place, so it can always fill its squad
 - A team already leading cannot outbid itself
+- A new spin is refused while the wheel is turning or a player is on the block, so a live bid is never lost
+- Only the superadmin can change a team's budget
 - A sale is refused if a newer bid has come in since the superadmin's screen last updated
 - Simultaneous bids cannot overwrite each other
 
 **League**
-- Round-robin fixture generator and manual fixtures
-- 3D coin toss
+- Round-robin fixture generator and manual fixtures, with date and venue
+- 3D coin toss, closed once a match is completed
 - Scorecard entry, including all-out, ties and no results
 - Leaderboard ranked by points, then net run rate, then wins
+- Win animation and sound on every screen when a team wins a match
 
 | Result | Points |
 |---|---|
@@ -52,7 +58,7 @@ Net run rate is runs scored per over minus runs conceded per over. A side bowled
 
 1. The superadmin adds teams and players, then assigns each owner under **Teams → Assign owner**.
 2. Owners sign in and open the **Auction** tab.
-3. The superadmin presses **Spin**. Everyone watches the wheel.
+3. The superadmin presses **Spin**. Every screen shows "Get ready" for 2.5 seconds, then the wheel turns.
 4. When it stops, the player appears and owners bid.
 5. The superadmin presses **Sold** or **Unsold**, then spins again.
 
@@ -93,7 +99,7 @@ Put these in `.env.local`, which git ignores. Never commit them.
 | `npm run dev` | Starts the development server |
 | `npm run build` | Creates a production build |
 | `npm start` | Runs the production build |
-| `npm run migrate` | Copies `data/auction-db.json` into Neon |
+| `npm run icons` | Rebuilds the Android icon and splash images from `resources/` |
 
 ## Deploying
 
@@ -112,6 +118,10 @@ The app is a thin Capacitor shell around the hosted site. Website changes reach 
 
 This is a debug build meant for sharing directly, not for the Play Store. The app needs an internet connection.
 
+## iPhone
+
+There is no iPhone app, because the APK only installs on Android. Open the website in Safari and choose **Share → Add to Home Screen**. It then opens from its own icon, without the browser bars. A real iOS app would need a Mac and a paid Apple Developer account.
+
 ## Project layout
 
 ```
@@ -122,12 +132,16 @@ components/
   modals/            Popups such as Assign Owner and League Settings
   views/             One component per page
 lib/
-  client/            API client, sounds and logo resizing
-  server/            Database, auction, match, player, team and login logic
-  shared/            Rules used on both sides: max bid and standings
+  client/            API client, sounds, live event effects and logo resizing
+  server/
+    auth/            Passwords, session tokens and login lockout
+    services/        Auction, login, match, owner, player and team logic
+    db.ts            Reads and writes the league data
+  shared/            Used on both sides: max bid, standings and the player list reader
+public/              Logo and iPhone icon
+data/                Starter data for local runs without a database
 android/             Capacitor Android project
 resources/           App icon and splash images
-scripts/             Database migration
 www/                 Offline screen for the Android app
 ```
 

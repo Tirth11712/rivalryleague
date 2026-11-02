@@ -1,5 +1,5 @@
-import { readDb, writeDb, DatabaseSchema, Team } from './db'
-import { hashPassword, passwordMatches } from './password'
+import { readDb, writeDb, DatabaseSchema, Team } from '../db'
+import { hashPassword, passwordMatches } from '../auth/password'
 
 // Resized in the browser to 256x256, so a real logo is far below this.
 const MAX_LOGO_CHARS = 150_000

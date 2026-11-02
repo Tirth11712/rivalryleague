@@ -4,7 +4,7 @@ import { Lock, Gavel } from 'lucide-react'
 import type { Player, Team } from '@/lib/server/db'
 import { TeamBadge } from '@/components/common/TeamBadge'
 import { LiveSpinWheel } from '@/components/common/SpinWheel'
-import type { LiveSpin } from '@/lib/client/api'
+import type { ScheduledSpin } from '@/lib/client/api'
 import { maxBidFor } from '@/lib/shared/rules'
 
 const OWNER_INCREMENTS = [100, 250, 500, 1000]
@@ -27,7 +27,7 @@ export function SpectatorView({
   current: Player | null
   bid: number
   leader: Team | null
-  liveSpin: LiveSpin | null
+  liveSpin: ScheduledSpin | null
   maxSquadSize: number
   ownerTeam: Team | null
   onOwnerBid: (increment: number) => void
@@ -39,6 +39,7 @@ export function SpectatorView({
   const squadFull = !!ownerTeam && ownerTeam.players >= maxSquadSize
   const isLeading = !!ownerTeam && leader?.id === ownerTeam.id
   const maxBid = ownerTeam ? maxBidFor(ownerTeam, maxSquadSize) : 0
+  const mySquad = ownerTeam ? players.filter(p => p.status === 'Sold' && p.soldTo === ownerTeam.name) : []
 
   return (
     <div>
@@ -122,6 +123,28 @@ export function SpectatorView({
             <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8, textAlign: 'center' }}>
               {squadFull ? 'Your squad is full.' : 'You hold the top bid.'}
             </p>
+          )}
+        </section>
+      )}
+
+      {ownerTeam && (
+        <section className="card card-pad my-squad" style={{ marginTop: 14 }}>
+          <div className="card-label">
+            <span>My squad</span>
+            <b>{mySquad.length}/{maxSquadSize} · ₹{ownerTeam.purse.toLocaleString()} left</b>
+          </div>
+          {mySquad.length === 0 ? (
+            <p className="my-squad-empty">Players you buy will appear here.</p>
+          ) : (
+            <ul>
+              {mySquad.map(p => (
+                <li key={p.id}>
+                  <span className="my-squad-num">#{p.number}</span>
+                  <b className="my-squad-name">{p.name}</b>
+                  <b className="my-squad-price">₹{(p.soldPrice || 0).toLocaleString()}</b>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       )}

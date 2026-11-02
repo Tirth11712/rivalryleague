@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import { Plus, X } from 'lucide-react'
-import { PLAYER_ROLES } from '@/lib/shared/roles'
 
 export function AddPlayerModal({
   onClose,
@@ -10,20 +9,18 @@ export function AddPlayerModal({
   nextNumber
 }: {
   onClose: () => void
-  onAdd: (player: { name: string; base: number; role?: string }) => void
+  onAdd: (player: { name: string; base: number }) => void
   nextNumber: number
 }) {
   const [name, setName] = useState('')
   const [base, setBase] = useState(500)
-  const [role, setRole] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
     onAdd({
       name: name.trim(),
-      base: base || 500,
-      role: role || undefined
+      base: base || 500
     })
   }
 
@@ -49,13 +46,6 @@ export function AddPlayerModal({
             />
           </label>
 
-          <label>
-            ROLE (OPTIONAL)
-            <select value={role} onChange={e => setRole(e.target.value)}>
-              <option value="">Not set</option>
-              {PLAYER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </label>
           <label>
             BASE PRICE (₹)
             <input

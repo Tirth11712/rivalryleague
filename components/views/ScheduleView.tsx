@@ -125,14 +125,16 @@ export function ScheduleView({
 
                 <div className="match-foot">
                   <div>
-                    <small>{m.date} · {m.time}</small>
+                    <small>{m.date}</small>
                     <small>{m.venue}</small>
                   </div>
                   {isAuctioneer && (
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="ghost-btn btn-sm" onClick={() => onOpenToss(m)}>
-                        <Coins size={13} /> {m.tossWinner ? 'Re-flip' : 'Toss'}
-                      </button>
+                      {m.status !== 'Completed' && (
+                        <button className="ghost-btn btn-sm" onClick={() => onOpenToss(m)}>
+                          <Coins size={13} /> {m.tossWinner ? 'Re-flip' : 'Toss'}
+                        </button>
+                      )}
                       <button className="primary-btn btn-sm" onClick={() => onOpenResult(m)}>
                         <ClipboardList size={13} /> {m.resultType ? 'Edit Result' : 'Enter Result'}
                       </button>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { requireAuth } from '@/lib/server/token'
-import { getOwnerLoginId, setOwnerLogin } from '@/lib/server/ownerService'
+import { requireAuth } from '@/lib/server/auth/token'
+import { getOwnerLoginId, setOwnerLogin } from '@/lib/server/services/ownerService'
 
 type Ctx = { params: Promise<{ id: string }> }
 

@@ -1,4 +1,4 @@
-import { readDb, writeDb, Team } from './db'
+import { readDb, writeDb, Team } from '../db'
 
 export async function getAllTeams(): Promise<Team[]> {
   const db = await readDb()

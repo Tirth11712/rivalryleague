@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { verifyOwnerLogin } from '@/lib/server/ownerService'
-import { issueToken } from '@/lib/server/token'
-import { attemptKey, clearFailures, isLocked, recordFailure, tooManyAttempts } from '@/lib/server/loginGuard'
+import { verifyOwnerLogin } from '@/lib/server/services/ownerService'
+import { issueToken } from '@/lib/server/auth/token'
+import { attemptKey, clearFailures, isLocked, recordFailure, tooManyAttempts } from '@/lib/server/auth/loginGuard'
 
 export async function POST(req: Request) {
   try {

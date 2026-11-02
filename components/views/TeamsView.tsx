@@ -5,7 +5,6 @@ import { Plus, Trash2, Users, Wallet, ArrowRight, Upload, KeyRound, ImageOff } f
 import type { Team, Player } from '@/lib/server/db'
 import { TeamBadge } from '@/components/common/TeamBadge'
 import { fileToLogo } from '@/lib/client/image'
-import { roleShort } from '@/lib/shared/roles'
 import { maxBidFor } from '@/lib/shared/rules'
 
 function formatPurse(amount: number): string {
@@ -116,11 +115,6 @@ export function TeamsView({
               const isMine = ownerTeamId === t.id
               const rosterOpen = openRosters.includes(t.id)
 
-              const mix = new Map<string, number>()
-              roster.forEach(p => {
-                if (p.role) mix.set(p.role, (mix.get(p.role) || 0) + 1)
-              })
-
               return (
                 <article className="team-card" key={t.id}>
                   <div className="team-card-top">
@@ -164,18 +158,6 @@ export function TeamsView({
                   </div>
 
                   <div className="mix-grid">
-                    <div className="mix-box">
-                      <small>Squad mix</small>
-                      <div className="chips">
-                        {mix.size === 0 ? (
-                          <span style={{ fontSize: 12, color: 'var(--muted)' }}>No roles yet</span>
-                        ) : (
-                          [...mix].map(([role, n]) => (
-                            <span className="pill" key={role}>{n} {roleShort(role)}</span>
-                          ))
-                        )}
-                      </div>
-                    </div>
                     <div className="mix-box">
                       <small>Marquee buy</small>
                       {marquee ? (

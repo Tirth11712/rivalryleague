@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { verifyAuctioneerPin, updateAuctioneerPin } from '@/lib/server/authService'
-import { issueToken } from '@/lib/server/token'
-import { attemptKey, clearFailures, isLocked, recordFailure, tooManyAttempts } from '@/lib/server/loginGuard'
+import { verifyAuctioneerPin, updateAuctioneerPin } from '@/lib/server/services/authService'
+import { issueToken } from '@/lib/server/auth/token'
+import { attemptKey, clearFailures, isLocked, recordFailure, tooManyAttempts } from '@/lib/server/auth/loginGuard'
 
 export async function POST(req: Request) {
   try {

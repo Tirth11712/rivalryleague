@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Shuffle, Gavel, Plus, Search, X, Zap, RotateCcw } from 'lucide-react'
 import type { Player, Team } from '@/lib/server/db'
 import { TeamBadge } from '@/components/common/TeamBadge'
-import { SpinWheel, stopAngle } from '@/components/common/SpinWheel'
-import { maxBidFor, WHEEL_SPIN_MS } from '@/lib/shared/rules'
+import { LiveSpinWheel, SpinWheel } from '@/components/common/SpinWheel'
+import type { ScheduledSpin } from '@/lib/client/api'
+import { maxBidFor } from '@/lib/shared/rules'
 
 export type WheelScope = 'auto' | 'unsold' | 'all'
 type PoolFilter = 'ALL' | 'Upcoming' | 'Sold' | 'Unsold'
@@ -23,8 +24,8 @@ export function AuctionView({
   current,
   bid,
   leader,
-  spinning,
-  drawnPlayerId,
+  spinRequested,
+  liveSpin,
   wheelScope,
   setWheelScope,
   awardTeam,
@@ -48,8 +49,8 @@ export function AuctionView({
   current: Player | null
   bid: number
   leader: Team | null
-  spinning: boolean
-  drawnPlayerId: number | null
+  spinRequested: boolean
+  liveSpin: ScheduledSpin | null
   wheelScope: WheelScope
   setWheelScope: (scope: WheelScope) => void
   awardTeam: string
@@ -71,7 +72,6 @@ export function AuctionView({
   const [tab, setTab] = useState<'stage' | 'pool'>('stage')
   const [poolFilter, setPoolFilter] = useState<PoolFilter>('ALL')
   const [poolSearch, setPoolSearch] = useState('')
-  const [wheelAngle, setWheelAngle] = useState(0)
 
   const counts = useMemo(() => {
     const by = (status: Player['status']) => players.filter(p => p.status === status)
@@ -98,16 +98,6 @@ export function AuctionView({
   useEffect(() => {
     if (current) setTab('stage')
   }, [current])
-
-  // Turn so the drawn player's wedge stops under the pointer at 12 o'clock
-  useEffect(() => {
-    if (drawnPlayerId === null) return
-    const index = wheelPlayers.findIndex(p => p.id === drawnPlayerId)
-    if (index < 0) return
-    const stop = stopAngle(index, wheelPlayers.length)
-    setWheelAngle(prev => prev - (prev % 360) + 6 * 360 + stop)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new draw starts a spin
-  }, [drawnPlayerId])
 
   const selectedTeam = teams.find(t => t.name === awardTeam) || null
   const selectedFull = !!selectedTeam && selectedTeam.players >= maxSquadSize
@@ -168,7 +158,6 @@ export function AuctionView({
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <div className="chips">
-                      {current.role && <span className="pill sand">{current.role}</span>}
                       <span className="pill">Base ₹{(current.base || 500).toLocaleString()}</span>
                       {current.status !== 'Upcoming' && (
                         <span className={current.status === 'Sold' ? 'pill green' : 'pill red'}>
@@ -177,8 +166,15 @@ export function AuctionView({
                       )}
                     </div>
                     <h3>{current.name}</h3>
-                    {current.style && <span className="meta">{current.style}</span>}
                   </div>
+                </div>
+              </section>
+            ) : liveSpin ? (
+              <section className="card wheel-card">
+                <LiveSpinWheel key={liveSpin.id} spin={liveSpin} players={players} />
+                <div className="idle-note">
+                  <b>Drawing the next player</b>
+                  Every screen is watching this spin.
                 </div>
               </section>
             ) : (
@@ -195,9 +191,9 @@ export function AuctionView({
                   ))}
                 </div>
 
-                <SpinWheel players={wheelPlayers} unsoldRound={isUnsoldRound} angle={wheelAngle} spinning={spinning} durationMs={WHEEL_SPIN_MS}>
-                  <button className="spinner-center" onClick={spin} disabled={spinning || n === 0} aria-label="Spin the wheel">
-                    {spinning ? (
+                <SpinWheel players={wheelPlayers} unsoldRound={isUnsoldRound} angle={0} spinning={false} durationMs={0}>
+                  <button className="spinner-center" onClick={spin} disabled={spinRequested || n === 0} aria-label="Spin the wheel">
+                    {spinRequested ? (
                       <>
                         <Shuffle size={20} className="spin-icon-anim" />
                         <small>DRAWING</small>
@@ -396,7 +392,7 @@ export function AuctionView({
                   <span className={`status ${p.status.toLowerCase()}`}>{p.status}</span>
                 </div>
                 <div className="top" style={{ marginTop: 4, fontSize: 12, color: 'var(--muted)' }}>
-                  <span>{p.status === 'Sold' ? `${p.soldTo}` : p.role || 'Base price'}</span>
+                  <span>{p.status === 'Sold' ? `${p.soldTo}` : 'Base price'}</span>
                   <span className="mono">₹{(p.soldPrice || p.base || 500).toLocaleString()}</span>
                 </div>
                 <div className="acts">

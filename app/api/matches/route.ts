@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { requireAuth } from '@/lib/server/token'
+import { requireAuth } from '@/lib/server/auth/token'
 import {
   getAllMatches,
   createMatch,
   deleteMatch,
   generateRoundRobinSchedule
-} from '@/lib/server/matchService'
+} from '@/lib/server/services/matchService'
 
 export async function GET() {
   try {

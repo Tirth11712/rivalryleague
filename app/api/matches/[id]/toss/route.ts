@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { requireAuth } from '@/lib/server/token'
-import { recordTossOutcome, getAllMatches } from '@/lib/server/matchService'
+import { requireAuth } from '@/lib/server/auth/token'
+import { recordTossOutcome, getAllMatches } from '@/lib/server/services/matchService'
 
 export async function POST(
   req: Request,

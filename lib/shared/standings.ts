@@ -2,7 +2,7 @@ import type { Match, Team, InningsScore } from '@/lib/server/db'
 
 export const WIN_POINTS = 2
 export const TIE_POINTS = 1
-export const NO_RESULT_POINTS = 1
+const NO_RESULT_POINTS = 1
 export const DEFAULT_OVERS = 10
 
 /** "7.3" -> 45 balls. Returns null when the notation is invalid (balls digit must be 0-5). */

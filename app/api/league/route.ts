@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { requireAuth } from '@/lib/server/token'
+import { requireAuth } from '@/lib/server/auth/token'
 import { readDb, writeDb } from '@/lib/server/db'
 
 export async function GET() {

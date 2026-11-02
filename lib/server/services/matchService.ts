@@ -1,4 +1,4 @@
-import { readDb, writeDb, Match, InningsScore } from './db'
+import { readDb, writeDb, Match, InningsScore } from '../db'
 
 export async function getAllMatches(): Promise<Match[]> {
   const db = await readDb()
@@ -9,7 +9,6 @@ export async function createMatch(data: {
   teamA: string
   teamB: string
   date: string
-  time?: string
   venue?: string
   stage?: string
 }): Promise<{ success: boolean; match?: Match; message?: string }> {
@@ -28,7 +27,6 @@ export async function createMatch(data: {
     teamA: data.teamA,
     teamB: data.teamB,
     date: data.date || new Date().toISOString().split('T')[0],
-    time: data.time || '18:00 IST',
     venue: data.venue || 'Main Stadium Arena',
     status: 'Scheduled'
   }
@@ -74,7 +72,6 @@ export async function generateRoundRobinSchedule(): Promise<{
         teamA: teamNames[i],
         teamB: teamNames[j],
         date: matchDate.toISOString().split('T')[0],
-        time: matchNum % 2 === 0 ? '19:30 IST' : '15:30 IST',
         venue: 'Grand Central Arena',
         status: 'Scheduled'
       })
@@ -181,6 +178,9 @@ export async function recordTossOutcome(
   const match = db.matches.find(m => m.id === matchId)
   if (!match) {
     return { success: false, message: 'Match fixture not found' }
+  }
+  if (match.status === 'Completed') {
+    return { success: false, message: 'This match is already completed' }
   }
 
   if (tossWinner !== match.teamA && tossWinner !== match.teamB) {

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { serverError } from '@/lib/server/respond'
-import { requireAuth } from '@/lib/server/token'
+import { requireAuth } from '@/lib/server/auth/token'
 import {
   getAllPlayers,
   createPlayer,
   bulkImportPlayers,
   updatePlayer,
   deletePlayer
-} from '@/lib/server/playerService'
+} from '@/lib/server/services/playerService'
 
 export async function GET() {
   try {
