@@ -49,6 +49,10 @@
 
   --radius-md: 0.75rem;
   --radius: 0.5rem;
+
+  /* The phone's status bar sits above the app, so the header and the page below it grow by its height */
+  --topbar-h: calc(max(8px, env(safe-area-inset-top)) + 48px);
+  --tabbar-h: calc(58px + env(safe-area-inset-bottom, 0px));
 }
 
 * { box-sizing: border-box; }
@@ -88,7 +92,7 @@ em { font-style: normal; color: var(--cognac); }
   width: 100%;
   max-width: 1120px;
   margin: 0 auto;
-  padding: 72px 20px 110px;
+  padding: calc(var(--topbar-h) + 16px) 16px calc(var(--tabbar-h) + 28px);
 }
 
 /* ------------------------------ Topbar ---------------------------------- */
@@ -98,7 +102,7 @@ em { font-style: normal; color: var(--cognac); }
   left: 0;
   right: 0;
   z-index: 50;
-  min-height: 56px;
+  height: var(--topbar-h);
   padding: 8px 16px;
   padding-top: max(8px, env(safe-area-inset-top));
   display: flex;
@@ -250,7 +254,7 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 @media (min-width: 900px) {
   .desktop-nav { display: flex; }
   .mobile-tabs { display: none; }
-  .page-wrap { padding: 88px 32px 60px; }
+  .page-wrap { padding: calc(var(--topbar-h) + 32px) 32px 60px; }
   .topbar { padding-left: 32px; padding-right: 32px; }
 }
 
@@ -649,6 +653,12 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 .team-opt small { font-size: 11px; color: var(--muted-light); font-weight: 500; flex-shrink: 0; }
 .team-opt.selected { background: var(--sand-fixed); border-color: var(--champagne); }
 .team-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+/* On phones the max bid goes under the name, so names are not cut short */
+@media (max-width: 520px) {
+  .team-opt { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .team-opt .nm { max-width: 100%; }
+  .team-opt small { padding-left: 16px; }
+}
 
 .inc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .inc-btn {
@@ -662,6 +672,10 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 .inc-btn.hot { background: var(--espresso); border-color: var(--espresso); color: #fff; }
 .inc-btn:disabled, .inc-btn.mid:disabled, .inc-btn.hot:disabled {
   background: var(--bg-elevated); border-color: var(--line); color: var(--muted); box-shadow: none; cursor: not-allowed;
+}
+.min-raise {
+  margin-bottom: 8px; padding: 6px 10px; border-radius: 8px; background: var(--sand-fixed);
+  color: var(--primary); font-size: 12px; font-weight: 700; text-align: center;
 }
 
 .hammer-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: 10px; }
@@ -747,7 +761,7 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 .player-card .acts .mini-btn { flex: 1; }
 
 .fab {
-  position: fixed; right: 16px; bottom: 76px; z-index: 40; display: inline-flex; align-items: center; gap: 8px;
+  position: fixed; right: 16px; bottom: calc(var(--tabbar-h) + 18px); z-index: 40; display: inline-flex; align-items: center; gap: 8px;
   padding: 13px 20px; border-radius: 999px; background: var(--espresso); color: #fff; font-weight: 600; font-size: 14px; box-shadow: var(--shadow-lg);
 }
 .fab .dot { width: 9px; height: 9px; border-radius: 50%; background: #f2bb97; }
@@ -914,7 +928,7 @@ select.season-chip { appearance: none; outline: none; cursor: pointer; }
 
 /* ------------------------------ Toast ----------------------------------- */
 .toast {
-  position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); z-index: 120; max-width: min(92vw, 460px);
+  position: fixed; left: 50%; bottom: calc(var(--tabbar-h) + 18px); transform: translateX(-50%); z-index: 120; max-width: min(92vw, 460px);
   padding: 12px 20px; border-radius: 999px; background: var(--espresso); color: var(--bg); font-size: 13px; font-weight: 500;
   box-shadow: var(--shadow-lg); animation: toast-in 0.25s ease; text-align: center;
 }

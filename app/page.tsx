@@ -31,7 +31,7 @@ import { WinBanner } from '@/components/common/WinBanner'
 // Views
 import { HomeView } from '@/components/views/HomeView'
 import { AuctionView, type WheelScope } from '@/components/views/AuctionView'
-import { WHEEL_REVEAL_PAUSE_MS } from '@/lib/shared/rules'
+import { BID_STEPS, minRaiseAfter, WHEEL_REVEAL_PAUSE_MS } from '@/lib/shared/rules'
 import { SpectatorView } from '@/components/views/SpectatorView'
 import { TeamsView } from '@/components/views/TeamsView'
 import { PlayersView } from '@/components/views/PlayersView'
@@ -60,6 +60,7 @@ export default function Page() {
   const [matches, setMatches] = useState<Match[]>([])
   const [current, setCurrent] = useState<Player | null>(null)
   const [bid, setBid] = useState(0)
+  const [minRaise, setMinRaise] = useState<number>(BID_STEPS[0])
   const [leader, setLeader] = useState<Team | null>(null)
   const [spinRequested, setSpinRequested] = useState(false)
   const [liveSpin, setLiveSpin] = useState<ScheduledSpin | null>(null)
@@ -141,6 +142,7 @@ export default function Page() {
       setTeams(auctionData.teams || [])
       setCurrent(auctionData.current || null)
       setBid(auctionData.auctionState?.currentBid || 0)
+      setMinRaise(auctionData.auctionState?.minRaise || BID_STEPS[0])
       setLeader(auctionData.leader || null)
       if (auctionData.current) {
         setAwardPrice(auctionData.auctionState?.currentBid || auctionData.current.base || 500)
@@ -482,6 +484,7 @@ export default function Page() {
           setCurrent(data.player)
           const initialBase = data.player.base || 500
           setBid(initialBase)
+          setMinRaise(BID_STEPS[0])
           setAwardPrice(initialBase)
           if (teams.length > 0) setAwardTeam(teams[0].name)
           notify(`Player #${data.player.number} (${data.player.name}) on the block at ₹${initialBase}`)
@@ -504,12 +507,11 @@ export default function Page() {
         return
       }
 
-      let increment = customIncrement
-      if (!increment) {
-        if (bid < 1000) increment = 100
-        else if (bid < 5000) increment = 250
-        else if (bid < 20000) increment = 500
-        else increment = 1000
+      // Smaller raises close once a bigger one has been used on this player
+      const increment = customIncrement || minRaise
+      if (increment < minRaise) {
+        notify(`Minimum raise is now ₹${minRaise.toLocaleString()}`)
+        return
       }
 
       const nextBid = bid + increment
@@ -522,6 +524,7 @@ export default function Page() {
         const data = await apiAuction.bid(team.name, nextBid)
         if (data.success) {
           setBid(nextBid)
+          setMinRaise(data.auctionState?.minRaise || minRaiseAfter(minRaise, increment))
           setLeader(team)
           setAwardPrice(nextBid)
           setAwardTeam(team.name)
@@ -961,6 +964,7 @@ export default function Page() {
             teams={teams}
             current={current}
             bid={bid}
+            minRaise={minRaise}
             leader={leader}
             liveSpin={liveSpin}
             maxSquadSize={maxSquadSize}
@@ -976,6 +980,7 @@ export default function Page() {
             teams={teams}
             current={current}
             bid={bid}
+            minRaise={minRaise}
             leader={leader}
             spinRequested={spinRequested}
             liveSpin={liveSpin}

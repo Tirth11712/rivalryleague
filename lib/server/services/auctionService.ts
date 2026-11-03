@@ -1,5 +1,5 @@
 import { readDb, writeDb, AuctionState, DatabaseSchema, DbConflictError, Player, Team } from '../db'
-import { maxBidFor, WHEEL_LEAD_MS, WHEEL_REVEAL_PAUSE_MS, WHEEL_SPIN_MS } from '@/lib/shared/rules'
+import { BID_STEPS, maxBidFor, minRaiseAfter, WHEEL_LEAD_MS, WHEEL_REVEAL_PAUSE_MS, WHEEL_SPIN_MS } from '@/lib/shared/rules'
 
 /** Gives a sold player's price and squad slot back to the team that bought them. */
 function refundSale(db: DatabaseSchema, player: Player) {
@@ -242,11 +242,17 @@ async function tryBid(teamName: string, amount: number, increment?: number): Pro
     return { success: false, message: `${team.name} already holds the top bid` }
   }
 
-  const bidAmount = increment ? (db.auctionState.currentBid || 0) + increment : Number(amount)
+  const currentBid = db.auctionState.currentBid || 0
+  const minRaise = db.auctionState.minRaise || BID_STEPS[0]
+  // Owners bid by button, so the closed smaller steps apply; the superadmin's typed amount stays free
+  if (increment && increment < minRaise) {
+    return { success: false, message: `Minimum raise is now ₹${minRaise.toLocaleString()}` }
+  }
+
+  const bidAmount = increment ? currentBid + increment : Number(amount)
   if (!Number.isFinite(bidAmount) || bidAmount <= 0) {
     return { success: false, message: 'Please enter a valid bid amount' }
   }
-  const currentBid = db.auctionState.currentBid || 0
   if (db.auctionState.leaderTeamId ? bidAmount <= currentBid : bidAmount < currentBid) {
     return {
       success: false,
@@ -265,6 +271,7 @@ async function tryBid(teamName: string, amount: number, increment?: number): Pro
     return { success: false, message: `${team.name} can bid up to ₹${maxBid.toLocaleString()} and still fill its squad` }
   }
 
+  db.auctionState.minRaise = minRaiseAfter(db.auctionState.minRaise, bidAmount - currentBid)
   db.auctionState.currentBid = bidAmount
   db.auctionState.leaderTeamId = team.id
   db.auctionState.leaderTeamName = team.name

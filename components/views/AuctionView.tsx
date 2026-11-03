@@ -23,6 +23,7 @@ export function AuctionView({
   teams,
   current,
   bid,
+  minRaise,
   leader,
   spinRequested,
   liveSpin,
@@ -48,6 +49,7 @@ export function AuctionView({
   teams: Team[]
   current: Player | null
   bid: number
+  minRaise: number
   leader: Team | null
   spinRequested: boolean
   liveSpin: ScheduledSpin | null
@@ -275,14 +277,17 @@ export function AuctionView({
             </section>
 
             <section>
-              <div className="card-label"><span>Quick bid increments</span></div>
+              <div className="card-label">
+                <span>Quick bid increments</span>
+                {current && minRaise > INCREMENTS[0].value && <b>Minimum raise now ₹{minRaise.toLocaleString()}</b>}
+              </div>
               <div className="inc-grid">
                 {INCREMENTS.map(inc => (
                   <button
                     key={inc.value}
                     className={`inc-btn ${inc.tone}`}
                     onClick={() => selectedTeam && makeBid(selectedTeam, inc.value)}
-                    disabled={!current || !selectedTeam || selectedFull || maxBidFor(selectedTeam, maxSquadSize) < bid + inc.value}
+                    disabled={!current || !selectedTeam || selectedFull || inc.value < minRaise || maxBidFor(selectedTeam, maxSquadSize) < bid + inc.value}
                   >
                     <b>+₹{inc.value.toLocaleString()}</b>
                     <small>{inc.label}</small>

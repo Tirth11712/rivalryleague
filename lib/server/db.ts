@@ -58,6 +58,7 @@ export type AuctionState = {
   leaderTeamId: string | null
   leaderTeamName: string | null
   lastUpdated: string
+  minRaise?: number // smallest raise still open for this player; starts at the smallest bid step
   spin?: { startedAt: number; poolIds: number[]; landIndex: number; unsoldRound: boolean } // the latest wheel draw
 }
 

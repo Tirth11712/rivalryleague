@@ -5,9 +5,7 @@ import type { Player, Team } from '@/lib/server/db'
 import { TeamBadge } from '@/components/common/TeamBadge'
 import { LiveSpinWheel } from '@/components/common/SpinWheel'
 import type { ScheduledSpin } from '@/lib/client/api'
-import { maxBidFor } from '@/lib/shared/rules'
-
-const OWNER_INCREMENTS = [100, 250, 500, 1000]
+import { BID_STEPS, maxBidFor } from '@/lib/shared/rules'
 
 /** Read-only live auction for viewers; a signed-in owner also gets bid buttons for their team. */
 export function SpectatorView({
@@ -15,6 +13,7 @@ export function SpectatorView({
   teams,
   current,
   bid,
+  minRaise,
   leader,
   liveSpin,
   maxSquadSize,
@@ -26,6 +25,7 @@ export function SpectatorView({
   teams: Team[]
   current: Player | null
   bid: number
+  minRaise: number
   leader: Team | null
   liveSpin: ScheduledSpin | null
   maxSquadSize: number
@@ -106,13 +106,16 @@ export function SpectatorView({
             </span>
             <b>Max bid ₹{maxBid.toLocaleString()} · {ownerTeam.players}/{maxSquadSize}</b>
           </div>
+          {current && minRaise > BID_STEPS[0] && (
+            <p className="min-raise">Minimum raise now ₹{minRaise.toLocaleString()}</p>
+          )}
           <div className="inc-grid">
-            {OWNER_INCREMENTS.map((inc, i) => (
+            {BID_STEPS.map((inc, i) => (
               <button
                 key={inc}
                 className={`inc-btn ${i === 3 ? 'hot' : i ? 'mid' : ''}`}
                 onClick={() => onOwnerBid(inc)}
-                disabled={!current || squadFull || isLeading || maxBid < bid + inc}
+                disabled={!current || squadFull || isLeading || inc < minRaise || maxBid < bid + inc}
               >
                 <b>+₹{inc.toLocaleString()}</b>
                 <small>Bid ₹{(bid + inc).toLocaleString()}</small>

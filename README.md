@@ -23,6 +23,7 @@ Players do not have logins.
 - Wheel filters: Available, Unsold or Everyone
 - Direct nomination and direct sale from the player pool
 - Owners bid in steps of ₹100, ₹250, ₹500 or ₹1,000 from their phones
+- **No going back to smaller raises:** once a player has been raised by ₹250, the ₹100 step closes for that player, and so on up to ₹1,000. Every new player starts with all four steps open
 - **My squad:** owners see the players they have bought, with prices, under their bid buttons
 - Sold animation and sounds for spins, bids, sales and unsold players on every screen, with an on/off button in the header
 - Add players one at a time, or paste a whole list under **Players → Add from Text**. List numbers and bullets are removed, duplicates are skipped, and a line can end with a base price
@@ -34,6 +35,7 @@ Players do not have logins.
 - A team cannot go over its squad limit or its purse
 - **Max bid:** a team must keep the ₹500 base price for each other open squad place, so it can always fill its squad
 - A team already leading cannot outbid itself
+- An owner's raise below the current minimum raise is refused
 - A new spin is refused while the wheel is turning or a player is on the block, so a live bid is never lost
 - Only the superadmin can change a team's budget
 - A sale is refused if a newer bid has come in since the superadmin's screen last updated
