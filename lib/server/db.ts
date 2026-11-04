@@ -1,6 +1,6 @@
 import fs from 'fs/promises'
 import path from 'path'
-import { neon } from '@neondatabase/serverless'
+import postgres from 'postgres'
 
 export type Player = {
   id: number
@@ -116,55 +116,39 @@ const initialData: DatabaseSchema = {
 }
 
 // -------------------------------------------------------------
-// Neon Serverless PostgreSQL Database Client
+// Postgres (Supabase). Tables and the load_league / save_league
+// functions come from supabase/schema.sql.
 // -------------------------------------------------------------
-let sqlClient: ReturnType<typeof neon> | null = null
-let isNeonInitialized = false
+type Sql = ReturnType<typeof postgres>
+let sqlClient: Sql | null = null
 
-export function getSqlClient() {
+export function getSqlClient(): Sql | null {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) return null
   if (!sqlClient) {
-    sqlClient = neon(dbUrl)
+    sqlClient = postgres(dbUrl, {
+      prepare: false, // required by Supabase's transaction pooler
+      max: 1, // one connection per serverless instance
+      idle_timeout: 20,
+      connect_timeout: 10,
+      ssl: /@(localhost|127\.0\.0\.1)[:/]/.test(dbUrl) ? false : 'require'
+    })
   }
   return sqlClient
 }
 
-async function ensureNeonDb(sql: ReturnType<typeof neon>): Promise<void> {
-  if (isNeonInitialized) return
+/** The whole league in one query, or null for a database with no league yet. */
+async function loadFromPostgres(sql: Sql): Promise<DatabaseSchema | null> {
+  const rows = await sql`select load_league() as data`
+  return (rows[0]?.data as DatabaseSchema | null) ?? null
+}
 
-  // Create persistence store table in Postgres
-  await sql`
-    CREATE TABLE IF NOT EXISTS auction_store (
-      id VARCHAR(32) PRIMARY KEY,
-      data JSONB NOT NULL,
-      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-  `
-
-  // Check if initial row exists
-  const rows = (await sql`
-    SELECT id FROM auction_store WHERE id = 'default' LIMIT 1;
-  `) as Array<Record<string, any>>
-
-  if (rows.length === 0) {
-    // Seed initial row from local auction-db.json if available
-    let seedData = initialData
-    try {
-      const content = await fs.readFile(DB_FILE, 'utf-8')
-      seedData = JSON.parse(content) as DatabaseSchema
-    } catch {
-      seedData = initialData
-    }
-
-    await sql`
-      INSERT INTO auction_store (id, data, updated_at)
-      VALUES ('default', ${JSON.stringify(seedData)}::jsonb, NOW())
-      ON CONFLICT (id) DO NOTHING;
-    `
+async function seedData(): Promise<DatabaseSchema> {
+  try {
+    return JSON.parse(await fs.readFile(DB_FILE, 'utf-8')) as DatabaseSchema
+  } catch {
+    return structuredClone(initialData)
   }
-
-  isNeonInitialized = true
 }
 
 // -------------------------------------------------------------
@@ -219,14 +203,11 @@ export async function readDb(): Promise<DatabaseSchema> {
   const sql = getSqlClient()
   if (sql) {
     try {
-      await ensureNeonDb(sql)
-      const rows = (await sql`
-        SELECT data FROM auction_store WHERE id = 'default' LIMIT 1;
-      `) as Array<Record<string, any>>
-      if (rows.length > 0 && rows[0].data) return rows[0].data as DatabaseSchema
+      // A new database starts from the starter data; its first save creates the league
+      return (await loadFromPostgres(sql)) ?? { ...(await seedData()), rev: 0 }
     } catch (err) {
       if (process.env.VERCEL) throw err
-      console.error('[Neon Postgres Read Warning, falling back to local file]:', err)
+      console.error('[Postgres read failed, falling back to local file]:', err)
     }
   }
   return await ensureLocalDb()
@@ -236,22 +217,15 @@ export async function writeDb(data: DatabaseSchema): Promise<void> {
   const sql = getSqlClient()
   if (sql) {
     const baseRev = data.rev ?? 0
-    data.rev = baseRev + 1
     try {
-      await ensureNeonDb(sql)
       // Only applies if nobody else saved since this copy was read
-      const rows = (await sql`
-        UPDATE auction_store
-        SET data = ${JSON.stringify(data)}::jsonb, updated_at = NOW()
-        WHERE id = 'default' AND COALESCE((data->>'rev')::int, 0) = ${baseRev}
-        RETURNING id;
-      `) as Array<Record<string, any>>
-      if (rows.length === 0) throw new DbConflictError()
+      const rows = await sql`select save_league(${baseRev}, ${sql.json(data as never)}) as saved`
+      if (!rows[0]?.saved) throw new DbConflictError()
+      data.rev = baseRev + 1
       return
     } catch (err) {
-      data.rev = baseRev
       if (err instanceof DbConflictError || process.env.VERCEL) throw err
-      console.error('[Neon Postgres Write Warning, saving locally]:', err)
+      console.error('[Postgres write failed, saving locally]:', err)
     }
   }
 

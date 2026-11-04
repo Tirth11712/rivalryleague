@@ -67,7 +67,7 @@ Net run rate is runs scored per over minus runs conceded per over. A side bowled
 ## Tech stack
 
 - [Next.js 16](https://nextjs.org) (App Router) with React 19 and TypeScript
-- [Neon](https://neon.tech) serverless Postgres
+- [Supabase](https://supabase.com) Postgres, reached with [postgres.js](https://github.com/porsager/postgres)
 - Hand-written CSS in `app/globals.css`, with the Space Grotesk font and lucide-react icons
 - [Capacitor](https://capacitorjs.com) for the Android app
 - Vercel for hosting and GitHub Actions for APK builds
@@ -91,7 +91,7 @@ Put these in `.env.local`, which git ignores. Never commit them.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `DATABASE_URL` | In production | Neon Postgres connection string |
+| `DATABASE_URL` | In production | Supabase **Transaction pooler** connection string (port 6543) |
 | `AUTH_SECRET` | In production | Long random string used to sign login sessions |
 
 ### Commands
@@ -105,9 +105,10 @@ Put these in `.env.local`, which git ignores. Never commit them.
 
 ## Deploying
 
-1. Import the repository into Vercel.
-2. Add `DATABASE_URL` and `AUTH_SECRET` as environment variables.
-3. Deploy. Each push to `main` then deploys automatically.
+1. Create a Supabase project, open **SQL Editor**, paste all of `supabase/schema.sql` and press **Run**.
+2. Import the repository into Vercel.
+3. Add `DATABASE_URL` and `AUTH_SECRET` as environment variables.
+4. Deploy. Each push to `main` then deploys automatically.
 
 ## Android app
 
@@ -127,6 +128,7 @@ There is no iPhone app, because the APK only installs on Android. Open the websi
 ## Project layout
 
 ```
+supabase/            Database tables (schema.sql)
 app/                 Main page, global styles and API routes (app/api)
 components/
   common/            Shared pieces, including the spin wheel
@@ -147,7 +149,24 @@ resources/           App icon and splash images
 www/                 Offline screen for the Android app
 ```
 
-All league data is stored as one JSON document in the `auction_store` table. A revision number stops two simultaneous saves from overwriting each other.
+## Database
+
+`supabase/schema.sql` creates these tables. You can view and edit them in Supabase's Table Editor.
+
+| Table | One row per | Holds |
+|---|---|---|
+| `league` | league (one row) | Name, season, default purse, squad size, and the save counter |
+| `superadmin` | one row | Superadmin name and password hash |
+| `teams` | team | Name, short name, colour, owner, tagline, purse, spent, squad count, logo |
+| `owner_logins` | team with an owner | Login ID and password hash. Removed with its team |
+| `players` | player | Number, name, base price, status, buyer and price |
+| `matches` | fixture | Teams, date, venue, toss, both scores, result |
+| `auction_state` | one row | Player up for bidding, live bid, leader, minimum raise and the latest wheel spin |
+| `login_attempts` | account and network | Wrong-password count for the lockout |
+
+The app reads everything with `load_league()` and saves with `save_league()` in one transaction, so a save is all or nothing. The save counter in `league.rev` stops two simultaneous saves from overwriting each other.
+
+Row Level Security is on for every table with no policies, and the two functions are closed to Supabase's public API keys. Only the app's own connection string can read or change data, and passwords are only ever stored as hashes.
 
 ## Security
 

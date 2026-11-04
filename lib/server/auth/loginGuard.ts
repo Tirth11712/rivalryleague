@@ -37,7 +37,7 @@ export async function isLocked(key: string): Promise<boolean> {
       SELECT 1 FROM login_attempts
       WHERE key = ${key} AND failures >= ${MAX_FAILURES}
         AND first_failed_at > NOW() - INTERVAL '15 minutes';
-    `) as unknown[]
+    `) as unknown as unknown[]
     return rows.length > 0
   }
   const entry = localAttempts.get(key)
