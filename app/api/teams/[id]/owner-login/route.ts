@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { serverError } from '@/lib/server/respond'
+import { reply, serverError } from '@/lib/server/respond'
 import { requireAuth } from '@/lib/server/auth/token'
 import { getOwnerLoginId, setOwnerLogin } from '@/lib/server/services/ownerService'
 
@@ -25,7 +25,7 @@ export async function POST(req: Request, { params }: Ctx) {
     const { id } = await params
     const { teamName, ownerName, loginId, password } = await req.json()
     const result = await setOwnerLogin(id, { teamName, ownerName, loginId, password })
-    return NextResponse.json(result, { status: result.success ? 200 : 400 })
+    return reply(result)
   } catch (err) {
     return serverError(err)
   }

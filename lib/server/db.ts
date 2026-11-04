@@ -213,6 +213,24 @@ export async function readDb(): Promise<DatabaseSchema> {
   return await ensureLocalDb()
 }
 
+/** The save counter and latest spin start: one tiny query, so a screen with nothing new can skip the full load. */
+export async function readRevision(): Promise<{ rev: number | null; spinStartedAt: number | null }> {
+  const sql = getSqlClient()
+  if (sql) {
+    try {
+      const rows = await sql`
+        select l.rev, (a.spin->>'startedAt')::bigint as spin_at
+        from league l left join auction_state a on a.id = 1
+      `
+      const row = rows[0]
+      if (row) return { rev: Number(row.rev), spinStartedAt: row.spin_at == null ? null : Number(row.spin_at) }
+    } catch (err) {
+      if (process.env.VERCEL) throw err
+    }
+  }
+  return { rev: null, spinStartedAt: null } // local file: always send everything
+}
+
 export async function writeDb(data: DatabaseSchema): Promise<void> {
   const sql = getSqlClient()
   if (sql) {

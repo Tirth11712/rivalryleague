@@ -146,6 +146,9 @@ $$;
 create or replace function save_league(base_rev integer, doc jsonb) returns boolean
 language plpgsql set search_path = public as $$
 begin
+  -- Tells the hand-edit triggers below that this change is the app's own save
+  perform set_config('rivalry.saving', 'on', true);
+
   update league set
     name = doc->'league'->>'name',
     season = doc->'league'->>'season',
@@ -241,6 +244,92 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------- rows added or changed by hand in the Table Editor
+-- Missing values are filled in the way the app would, and every hand edit bumps league.rev so
+-- open screens pick it up and an app save made from an older copy cannot overwrite it.
+
+alter table teams alter column position drop not null, alter column position drop default;    -- hand-added rows sort last
+alter table players alter column position drop not null, alter column position drop default;
+alter table matches alter column position drop not null, alter column position drop default;
+alter table teams alter column purse drop default;                                             -- filled from the league's default purse
+alter table teams alter column id set default 'team_' || (extract(epoch from clock_timestamp()) * 1000)::bigint;
+alter table players alter column id set default (extract(epoch from clock_timestamp()) * 1000)::bigint;
+alter table matches alter column id set default 'm_' || (extract(epoch from clock_timestamp()) * 1000)::bigint;
+
+create or replace function fill_by_hand() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if current_setting('rivalry.saving', true) = 'on' then
+    return new;
+  end if;
+  if tg_table_name = 'teams' then
+    new.name := trim(new.name);
+    if coalesce(new.short, '') = '' then new.short := upper(left(regexp_replace(new.name, '[^A-Za-z0-9]', '', 'g'), 2)); end if;
+    if coalesce(new.color, '') = '' then new.color := '#6e472b'; end if;
+    new.purse := coalesce(new.purse, (select default_purse from league where id = 1), 0);
+  elsif tg_table_name = 'players' then
+    new.name := trim(new.name);
+    if new.number is null then new.number := coalesce((select max(number) from players), 0) + 1; end if;
+    if coalesce(new.initials, '') = '' then
+      new.initials := upper(coalesce(
+        nullif(left(split_part(new.name, ' ', 1), 1) || left(split_part(new.name, ' ', 2), 1), left(split_part(new.name, ' ', 1), 1)),
+        left(new.name, 2)));
+      if length(new.initials) < 2 then new.initials := upper(left(new.name, 2)); end if;
+    end if;
+  elsif tg_table_name = 'matches' then
+    if new.match_number is null then new.match_number := coalesce((select max(match_number) from matches), 0) + 1; end if;
+  end if;
+  return new;
+end
+$$;
+
+create or replace function bump_rev_by_hand() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if current_setting('rivalry.saving', true) is distinct from 'on' then
+    update league set rev = rev + 1, updated_at = now() where id = 1;
+  end if;
+  return null;
+end
+$$;
+
+create or replace function bump_league_rev_by_hand() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if current_setting('rivalry.saving', true) is distinct from 'on' and new.rev = old.rev then
+    new.rev := old.rev + 1;
+    new.updated_at := now();
+  end if;
+  return new;
+end
+$$;
+
+alter table players alter column number drop not null;   -- filled by fill_by_hand when left empty
+alter table matches alter column match_number drop not null;
+
+drop trigger if exists fill_by_hand on teams;
+create trigger fill_by_hand before insert or update on teams for each row execute function fill_by_hand();
+drop trigger if exists fill_by_hand on players;
+create trigger fill_by_hand before insert or update on players for each row execute function fill_by_hand();
+drop trigger if exists fill_by_hand on matches;
+create trigger fill_by_hand before insert or update on matches for each row execute function fill_by_hand();
+
+do $$
+declare t text;
+begin
+  foreach t in array array['teams', 'players', 'matches', 'owner_logins', 'superadmin', 'auction_state'] loop
+    execute format('drop trigger if exists bump_rev_by_hand on %I', t);
+    execute format('create trigger bump_rev_by_hand after insert or update or delete on %I for each statement execute function bump_rev_by_hand()', t);
+  end loop;
+end
+$$;
+
+drop trigger if exists bump_league_rev_by_hand on league;
+create trigger bump_league_rev_by_hand before update on league for each row execute function bump_league_rev_by_hand();
+
 -- Only the app's own connection may call these; Supabase's public API keys may not
 revoke all on function load_league() from public, anon, authenticated;
 revoke all on function save_league(integer, jsonb) from public, anon, authenticated;
+revoke all on function fill_by_hand() from public, anon, authenticated;
+revoke all on function bump_rev_by_hand() from public, anon, authenticated;
+revoke all on function bump_league_rev_by_hand() from public, anon, authenticated;

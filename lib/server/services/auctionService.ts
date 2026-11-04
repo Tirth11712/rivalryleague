@@ -12,15 +12,21 @@ function refundSale(db: DatabaseSchema, player: Player) {
   team.players = Math.max(0, team.players - 1)
 }
 
-export async function getAuctionSnapshot(): Promise<{
+export type AuctionSnapshot = {
   auctionState: AuctionState
   current: Player | null
   leader: Team | null
   teams: Team[]
   players: Player[]
   spin: LiveSpin | null
-}> {
-  const db = await readDb()
+}
+
+export async function getAuctionSnapshot(): Promise<AuctionSnapshot> {
+  return auctionSnapshot(await readDb())
+}
+
+/** What every screen sees of the auction right now. */
+export function auctionSnapshot(db: DatabaseSchema): AuctionSnapshot {
   const { spin, ...state } = db.auctionState
 
   // While the wheel turns, nobody's screen shows who it will stop on

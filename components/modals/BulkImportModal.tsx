@@ -13,19 +13,27 @@ export function BulkImportModal({
   existingNames
 }: {
   onClose: () => void
-  onImport: (players: ParsedPlayer[]) => void
+  onImport: (players: ParsedPlayer[]) => Promise<void> | void
   nextNumber: number
   existingNames: string[]
 }) {
   const [text, setText] = useState('')
+  const [saving, setSaving] = useState(false)
   const { fresh, skipped } = useMemo(
     () => withoutDuplicates(parsePlayerList(text), existingNames),
     [text, existingNames]
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // One save at a time: a second tap while the first is saving would send the list again
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (fresh.length > 0) onImport(fresh)
+    if (saving || fresh.length === 0) return
+    setSaving(true)
+    try {
+      await onImport(fresh)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -72,8 +80,8 @@ export function BulkImportModal({
 
           <div className="modal-actions">
             <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-btn" disabled={fresh.length === 0}>
-              <Upload size={16} /> Add {fresh.length || ''} Player{fresh.length === 1 ? '' : 's'}
+            <button type="submit" className="primary-btn" disabled={saving || fresh.length === 0}>
+              <Upload size={16} /> {saving ? 'Adding…' : `Add ${fresh.length || ''} Player${fresh.length === 1 ? '' : 's'}`}
             </button>
           </div>
         </form>

@@ -42,7 +42,7 @@ Players do not have logins.
 - Simultaneous bids cannot overwrite each other
 
 **League**
-- Round-robin fixture generator and manual fixtures, with date and venue
+- Fixtures added by the superadmin, with date and venue
 - 3D coin toss, closed once a match is completed
 - Scorecard entry, including all-out, ties and no results
 - Leaderboard ranked by points, then net run rate, then wins
@@ -165,6 +165,10 @@ www/                 Offline screen for the Android app
 | `login_attempts` | account and network | Wrong-password count for the lockout |
 
 The app reads everything with `load_league()` and saves with `save_league()` in one transaction, so a save is all or nothing. The save counter in `league.rev` stops two simultaneous saves from overwriting each other.
+
+**Editing in the Table Editor:** you can add or change rows by hand. Leave `id`, `position`, `number`, `short`, `color` and `purse` empty and they are filled in the way the app would. Every hand edit bumps `league.rev`, so open screens pick it up within seconds, and an app save made from an older copy is refused instead of overwriting it. Owner passwords cannot be added by hand, because only hashes are stored; use **Teams → Assign owner**.
+
+**Speed:** screens ask `/api/state` for everything in one request, and pass the last revision so an unchanged league answers in a few bytes. Every change replies with the fresh league, so the screen updates without asking again. Team logos are served as cacheable images instead of inside every refresh.
 
 Row Level Security is on for every table with no policies, and the two functions are closed to Supabase's public API keys. Only the app's own connection string can read or change data, and passwords are only ever stored as hashes.
 

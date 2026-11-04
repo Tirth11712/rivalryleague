@@ -5,25 +5,37 @@ export async function getAllPlayers(): Promise<Player[]> {
   return db.players
 }
 
+const nameKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase()
+
+/** Ids only ever go up, so players added in quick succession never share one. */
+function idMaker(players: Player[]): () => number {
+  let next = Math.max(Date.now(), players.reduce((max, p) => Math.max(max, p.id), 0) + 1)
+  return () => next++
+}
+
 export async function createPlayer(data: {
   name: string
   base?: number
 }): Promise<{ success: boolean; player?: Player; message?: string }> {
-  if (!data.name || !data.name.trim()) {
+  const name = data.name?.trim().replace(/\s+/g, ' ')
+  if (!name) {
     return { success: false, message: 'Player name is required' }
   }
 
   const db = await readDb()
+  const existing = db.players.find(p => nameKey(p.name) === nameKey(name))
+  if (existing) {
+    return { success: false, message: `#${existing.number} ${existing.name} is already in the pool` }
+  }
   const maxNum = db.players.reduce((max, p) => Math.max(max, p.number || 0), 0)
-  const playerNumber = maxNum + 1
 
   const newPlayer: Player = {
-    id: Date.now(),
-    number: playerNumber,
-    name: data.name.trim(),
+    id: idMaker(db.players)(),
+    number: maxNum + 1,
+    name,
     base: Number(data.base) || 500,
     status: 'Upcoming',
-    initials: computeInitials(data.name)
+    initials: computeInitials(name)
   }
 
   db.players.push(newPlayer)
@@ -31,27 +43,39 @@ export async function createPlayer(data: {
   return { success: true, player: newPlayer }
 }
 
+/** Names already in the pool, or repeated in the list, are skipped, so sending the same list twice adds nothing twice. */
 export async function bulkImportPlayers(
   list: Array<{ name: string; base?: number }>
-): Promise<{ success: boolean; count: number; players: Player[] }> {
+): Promise<{ success: boolean; count: number; skipped: number; message: string; players: Player[] }> {
   const db = await readDb()
   let nextNum = db.players.reduce((max, p) => Math.max(max, p.number || 0), 0) + 1
+  const nextId = idMaker(db.players)
+  const seen = new Set(db.players.map(p => nameKey(p.name)))
 
-  const added: Player[] = list.map((p, idx) => {
-    const assignedNumber = nextNum++
-    return {
-      id: Date.now() + idx,
-      number: assignedNumber,
-      name: p.name?.trim() || `Player #${assignedNumber}`,
+  const added: Player[] = []
+  for (const p of list) {
+    const name = p.name?.trim().replace(/\s+/g, ' ')
+    if (!name || seen.has(nameKey(name))) continue
+    seen.add(nameKey(name))
+    added.push({
+      id: nextId(),
+      number: nextNum++,
+      name,
       base: Number(p.base) || 500,
       status: 'Upcoming',
-      initials: computeInitials(p.name || 'PL')
-    }
-  })
+      initials: computeInitials(name)
+    })
+  }
+  const skipped = list.length - added.length
 
-  db.players.push(...added)
-  await writeDb(db)
-  return { success: true, count: added.length, players: db.players }
+  if (added.length) {
+    db.players.push(...added)
+    await writeDb(db)
+  }
+  const message =
+    `Added ${added.length} player${added.length === 1 ? '' : 's'}` +
+    (skipped ? ` · ${skipped} already in the pool or repeated, skipped` : '')
+  return { success: true, count: added.length, skipped, message, players: db.players }
 }
 
 export async function updatePlayer(

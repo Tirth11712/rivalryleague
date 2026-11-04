@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { serverError } from '@/lib/server/respond'
+import { reply, serverError } from '@/lib/server/respond'
 import { requireAuth } from '@/lib/server/auth/token'
-import { adjustTeamBudget, getAllTeams } from '@/lib/server/services/teamService'
+import { adjustTeamBudget } from '@/lib/server/services/teamService'
 
 export async function POST(
   req: Request,
@@ -14,8 +14,7 @@ export async function POST(
     const { id } = await params
     const { mode, amount } = await req.json()
     const result = await adjustTeamBudget(id, mode || 'set', amount)
-    const teams = await getAllTeams()
-    return NextResponse.json({ ...result, teams }, { status: result.success ? 200 : 400 })
+    return reply(result)
   } catch (err) {
     return serverError(err)
   }

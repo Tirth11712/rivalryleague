@@ -46,48 +46,6 @@ export async function deleteMatch(id: string): Promise<{ success: boolean; messa
   return { success: true, message: 'Match deleted' }
 }
 
-export async function generateRoundRobinSchedule(): Promise<{
-  success: boolean
-  message: string
-  matches: Match[]
-}> {
-  const db = await readDb()
-  const teamNames = db.teams.map(t => t.name)
-  if (teamNames.length < 2) {
-    return { success: false, message: 'At least 2 teams are required to generate schedules', matches: [] }
-  }
-
-  const fixtures: Match[] = []
-  let matchNum = 1
-  const today = new Date()
-
-  for (let i = 0; i < teamNames.length; i++) {
-    for (let j = i + 1; j < teamNames.length; j++) {
-      const matchDate = new Date(today)
-      matchDate.setDate(today.getDate() + matchNum)
-      fixtures.push({
-        id: `m_${Date.now()}_${matchNum}`,
-        matchNumber: matchNum,
-        stage: `League Match #${matchNum}`,
-        teamA: teamNames[i],
-        teamB: teamNames[j],
-        date: matchDate.toISOString().split('T')[0],
-        venue: 'Grand Central Arena',
-        status: 'Scheduled'
-      })
-      matchNum++
-    }
-  }
-
-  db.matches = fixtures
-  await writeDb(db)
-  return {
-    success: true,
-    message: `Generated ${fixtures.length} tournament fixtures across ${teamNames.length} teams`,
-    matches: fixtures
-  }
-}
-
 export async function recordMatchResult(
   matchId: string,
   input: {

@@ -1,6 +1,6 @@
 'use client'
 
-import { CalendarDays, Plus, Dices, Coins, Trash2, ClipboardList } from 'lucide-react'
+import { CalendarDays, Plus, Coins, Trash2, ClipboardList } from 'lucide-react'
 import type { Match, Team } from '@/lib/server/db'
 
 export function ScheduleView({
@@ -10,7 +10,6 @@ export function ScheduleView({
   setFilter,
   isAuctioneer,
   onAddMatch,
-  onGenerateRoundRobin,
   onDeleteMatch,
   onOpenToss,
   onOpenResult,
@@ -22,7 +21,6 @@ export function ScheduleView({
   setFilter: (f: string) => void
   isAuctioneer: boolean
   onAddMatch: () => void
-  onGenerateRoundRobin: () => void
   onDeleteMatch: (id: string) => void
   onOpenToss: (m: Match) => void
   onOpenResult: (m: Match) => void
@@ -47,9 +45,6 @@ export function ScheduleView({
         {isAuctioneer && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="ghost-btn btn-sm" onClick={onQuickToss}><Coins size={14} /> Quick Toss</button>
-            <button className="ghost-btn btn-sm" onClick={onGenerateRoundRobin} disabled={teams.length < 2}>
-              <Dices size={14} /> Round Robin
-            </button>
             <button className="primary-btn btn-sm" onClick={onAddMatch}><Plus size={14} /> Add Match</button>
           </div>
         )}
@@ -61,8 +56,8 @@ export function ScheduleView({
           <h3>No matches scheduled</h3>
           <p>Fixtures appear here once the superadmin creates them.</p>
           {isAuctioneer && (
-            <button className="primary-btn" onClick={onGenerateRoundRobin} disabled={teams.length < 2}>
-              <Dices size={16} /> Generate Round Robin
+            <button className="primary-btn" onClick={onAddMatch}>
+              <Plus size={16} /> Add Match
             </button>
           )}
         </div>

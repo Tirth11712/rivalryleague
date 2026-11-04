@@ -9,19 +9,23 @@ export function AddPlayerModal({
   nextNumber
 }: {
   onClose: () => void
-  onAdd: (player: { name: string; base: number }) => void
+  onAdd: (player: { name: string; base: number }) => Promise<void> | void
   nextNumber: number
 }) {
   const [name, setName] = useState('')
   const [base, setBase] = useState(500)
+  const [saving, setSaving] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // One save at a time, so a double tap cannot add the player twice
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
-    onAdd({
-      name: name.trim(),
-      base: base || 500
-    })
+    if (saving || !name.trim()) return
+    setSaving(true)
+    try {
+      await onAdd({ name: name.trim(), base: base || 500 })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -63,7 +67,7 @@ export function AddPlayerModal({
 
           <div className="modal-actions" style={{ marginTop: '10px' }}>
             <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-btn"><Plus size={16} /> Add to Pool (₹{base})</button>
+            <button type="submit" className="primary-btn" disabled={saving}><Plus size={16} /> {saving ? 'Adding…' : `Add to Pool (₹${base})`}</button>
           </div>
         </form>
       </div>

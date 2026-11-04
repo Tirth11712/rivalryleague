@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { serverError } from '@/lib/server/respond'
+import { reply, serverError } from '@/lib/server/respond'
 import { requireAuth } from '@/lib/server/auth/token'
 import {
   getAllPlayers,
@@ -27,15 +27,11 @@ export async function POST(req: Request) {
 
     if (body.bulk && Array.isArray(body.players)) {
       const result = await bulkImportPlayers(body.players)
-      return NextResponse.json(result)
+      return reply(result)
     }
 
     const result = await createPlayer(body)
-    if (!result.success) {
-      return NextResponse.json(result, { status: 400 })
-    }
-    const players = await getAllPlayers()
-    return NextResponse.json({ success: true, player: result.player, players })
+    return reply(result)
   } catch (err) {
     return serverError(err)
   }
@@ -52,8 +48,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ success: false, message: 'Player id is required' }, { status: 400 })
     }
     const result = await updatePlayer(Number(id), updates)
-    const players = await getAllPlayers()
-    return NextResponse.json({ ...result, players }, { status: result.success ? 200 : 400 })
+    return reply(result)
   } catch (err) {
     return serverError(err)
   }
@@ -70,8 +65,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, message: 'Player id is required' }, { status: 400 })
     }
     const result = await deletePlayer(Number(id))
-    const players = await getAllPlayers()
-    return NextResponse.json({ ...result, players }, { status: result.success ? 200 : 400 })
+    return reply(result)
   } catch (err) {
     return serverError(err)
   }

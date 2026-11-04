@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
-import { serverError } from '@/lib/server/respond'
+import { reply, serverError } from '@/lib/server/respond'
 import { requireAuth } from '@/lib/server/auth/token'
 import { getAllTeams, createTeam, deleteTeam } from '@/lib/server/services/teamService'
-import { getAllPlayers } from '@/lib/server/services/playerService'
 
 export async function GET() {
   try {
@@ -20,8 +19,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const result = await createTeam(body)
-    const teams = await getAllTeams()
-    return NextResponse.json({ ...result, teams }, { status: result.success ? 200 : 400 })
+    return reply(result)
   } catch (err) {
     return serverError(err)
   }
@@ -38,9 +36,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: false, message: 'Team id is required' }, { status: 400 })
     }
     const result = await deleteTeam(id)
-    const teams = await getAllTeams()
-    const players = await getAllPlayers()
-    return NextResponse.json({ ...result, teams, players }, { status: result.success ? 200 : 400 })
+    return reply(result)
   } catch (err) {
     return serverError(err)
   }

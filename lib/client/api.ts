@@ -1,4 +1,5 @@
 import type { Player, Team, Match, AuctionState } from '@/lib/server/db'
+import type { ClientState } from '@/lib/server/clientState'
 
 // Auctioneer token (issued by /api/auth after a correct PIN, valid ~12h)
 const TOKEN_KEY = 'trl_auctioneer_token'
@@ -46,8 +47,16 @@ export function setOwnerToken(token: string | null) {
   writeToken(OWNER_TOKEN_KEY, token)
 }
 
+// Every change answers with the fresh league, which goes straight to the screen
+type StateListener = (state: ClientState, sentAt: number) => void
+let stateListener: StateListener | null = null
+export function onServerState(listener: StateListener | null) {
+  stateListener = listener
+}
+
 // API Client Helper
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const sentAt = performance.now()
   // Logo routes only accept the owner token; otherwise prefer the superadmin one
   const ownerToken = readToken(OWNER_TOKEN_KEY)?.raw ?? null
   const adminToken = url.endsWith('/logo') ? null : getAuthToken()
@@ -66,6 +75,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     window.dispatchEvent(new Event('trl-auth-expired'))
   }
   const json = await res.json()
+  if (options?.method && options.method !== 'GET' && json?.state && stateListener) stateListener(json.state, sentAt)
   return json as T
 }
 
@@ -189,6 +199,12 @@ export const apiPlayers = {
     })
 }
 
+// Everything a screen shows. With the last revision, an unchanged league answers in a few bytes.
+export const apiState = {
+  get: (rev: number | null) =>
+    request<{ success: boolean; unchanged?: boolean; state?: ClientState }>(rev ? `/api/state?rev=${rev}` : '/api/state')
+}
+
 // 5. Auction API
 export const apiAuction = {
   getState: () =>
@@ -286,11 +302,6 @@ export const apiMatches = {
   delete: (id: string) =>
     request<{ success: boolean; message: string; matches: Match[] }>(`/api/matches?id=${encodeURIComponent(id)}`, {
       method: 'DELETE'
-    }),
-  generateRoundRobin: () =>
-    request<{ success: boolean; message: string; matches: Match[] }>('/api/matches', {
-      method: 'POST',
-      body: JSON.stringify({ action: 'generate-round-robin' })
     }),
   recordResult: (
     matchId: string,

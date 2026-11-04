@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { serverError } from '@/lib/server/respond'
+import { reply, serverError } from '@/lib/server/respond'
 import { requireAuth } from '@/lib/server/auth/token'
-import { recordTossOutcome, getAllMatches } from '@/lib/server/services/matchService'
+import { recordTossOutcome } from '@/lib/server/services/matchService'
 
 export async function POST(
   req: Request,
@@ -14,8 +14,7 @@ export async function POST(
     const { id } = await params
     const { tossWinner, tossDecision } = await req.json()
     const result = await recordTossOutcome(id, tossWinner, tossDecision)
-    const matches = await getAllMatches()
-    return NextResponse.json({ ...result, matches }, { status: result.success ? 200 : 400 })
+    return reply(result)
   } catch (err) {
     return serverError(err)
   }

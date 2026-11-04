@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import type { Player, Team, Match } from '@/lib/server/db'
+import type { ClientState } from '@/lib/server/clientState'
 import {
   apiAuth,
   apiLeague,
@@ -11,6 +12,8 @@ import {
   apiAuction,
   apiMatches,
   apiOwner,
+  apiState,
+  onServerState,
   scheduleSpin,
   type ScheduledSpin,
   type OwnerDetails,
@@ -121,23 +124,22 @@ export default function Page() {
     toastTimer.current = window.setTimeout(() => setToast(''), 3200)
   }
 
-  // Load and synchronize state from backend
-  const loadAuction = useCallback(async () => {
-    try {
-      const sync = ++syncsStarted.current
-      const sentAt = performance.now()
-      const { spin, ...auctionData } = await apiAuction.getState()
-      if (!auctionData.success || sync < newestSyncApplied.current) return
-      newestSyncApplied.current = sync
+  const stateRev = useRef<number | null>(null)
+  const lastStateAt = useRef(-Infinity)
 
-      const incoming = spin ? scheduleSpin(spin, sentAt) : null
-      setLiveSpin(prev => (prev?.id === incoming?.id ? prev : incoming))
+  /** Puts a fresh copy of the league on screen. */
+  const applyState = useCallback((state: ClientState, sentAt: number) => {
+    const { spin, matches: matchList, league, rev, ...auctionData } = state
+    stateRev.current = rev
+    lastStateAt.current = performance.now()
 
-      // Skip re-render (and clobbering of in-progress inputs) when nothing changed
-      const signature = JSON.stringify(auctionData)
-      if (signature === lastAuctionSync.current) return
+    const incoming = spin ? scheduleSpin(spin, sentAt) : null
+    setLiveSpin(prev => (prev?.id === incoming?.id ? prev : incoming))
+
+    // Skip re-render (and clobbering of in-progress inputs) when nothing changed
+    const signature = JSON.stringify(auctionData)
+    if (signature !== lastAuctionSync.current) {
       lastAuctionSync.current = signature
-
       setPlayers(auctionData.players || [])
       setTeams(auctionData.teams || [])
       setCurrent(auctionData.current || null)
@@ -147,41 +149,52 @@ export default function Page() {
       if (auctionData.current) {
         setAwardPrice(auctionData.auctionState?.currentBid || auctionData.current.base || 500)
       }
-    } catch (e) {
-      console.error('Failed to sync the auction:', e)
+    }
+
+    const rest = JSON.stringify([matchList, league])
+    if (rest !== lastSync.current) {
+      lastSync.current = rest
+      setMatches(matchList || [])
+      if (league) {
+        setLeagueName(league.name)
+        setSeason(league.season)
+        setDefaultPurse(league.defaultPurse || 20000)
+        setMaxSquadSize(league.maxSquadSize || 11)
+      }
     }
   }, [])
 
-  const loadState = useCallback(async () => {
+  // Load and synchronize state from backend: one request, and a few bytes when nothing changed
+  const loadAuction = useCallback(async () => {
     try {
-      const [, matchData, leagueData] = await Promise.all([
-        loadAuction(),
-        apiMatches.getAll(),
-        apiLeague.getSettings()
-      ])
-
-      const signature = JSON.stringify([matchData, leagueData])
-      if (signature === lastSync.current) return
-      lastSync.current = signature
-
-      if (matchData.success) {
-        setMatches(matchData.matches || [])
-      }
-
-      if (leagueData.success && leagueData.league) {
-        setLeagueName(leagueData.league.name)
-        setSeason(leagueData.league.season)
-        setDefaultPurse(leagueData.league.defaultPurse || 20000)
-        setMaxSquadSize(leagueData.league.maxSquadSize || 11)
-      }
+      const sync = ++syncsStarted.current
+      const sentAt = performance.now()
+      const data = await apiState.get(stateRev.current)
+      if (!data.success || sync < newestSyncApplied.current) return
+      newestSyncApplied.current = sync
+      if (data.state) applyState(data.state, sentAt)
     } catch (e) {
-      console.error('Failed to sync backend state:', e)
+      console.error('Failed to sync the league:', e)
     }
+  }, [applyState])
+
+  // A change's own answer already carried the fresh league; only ask again when it did not
+  const loadState = useCallback(async () => {
+    if (performance.now() - lastStateAt.current < 1500) return
+    await loadAuction()
   }, [loadAuction])
 
   useEffect(() => {
-    loadState()
-  }, [loadState])
+    onServerState((state, sentAt) => {
+      newestSyncApplied.current = ++syncsStarted.current // anything still in flight is older than this
+      applyState(state, sentAt)
+    })
+    return () => onServerState(null)
+  }, [applyState])
+
+  useEffect(() => {
+    loadAuction()
+  }, [loadAuction])
 
   useEffect(() => {
     if (current) {
@@ -210,13 +223,6 @@ export default function Page() {
     }, auctionSyncMs)
     return () => window.clearInterval(id)
   }, [loadAuction, anyModalOpen, spinRequested, auctionSyncMs])
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (!document.hidden && !anyModalOpen && !spinRequested) loadState()
-    }, 6000)
-    return () => window.clearInterval(id)
-  }, [loadState, anyModalOpen, spinRequested])
 
   // Ask for the drawn player as soon as the spin is over, so no screen waits for its next sync
   useEffect(() => {
@@ -250,13 +256,13 @@ export default function Page() {
   }, [liveSpin, current])
 
   // Auctioneer Gatekeeper Check
-  const guardAuctioneer = (action: () => void) => {
+  const guardAuctioneer = <T,>(action: () => T): T | undefined => {
     if (!isAuctioneer) {
       setAuthModalOpen(true)
       notify('Superadmin sign-in required')
       return
     }
-    action()
+    return action()
   }
 
   // Restore a still-valid session on load; fall back to spectator when it expires
@@ -716,7 +722,7 @@ export default function Page() {
     name: string
     base: number
   }) => {
-    guardAuctioneer(async () => {
+    return guardAuctioneer(async () => {
       try {
         const data = await apiPlayers.create(p)
         if (data.success) {
@@ -734,11 +740,11 @@ export default function Page() {
   }
 
   const handleBulkImport = async (list: ParsedPlayer[]) => {
-    guardAuctioneer(async () => {
+    return guardAuctioneer(async () => {
       try {
         const data = await apiPlayers.bulkImport(list)
         if (data.success) {
-          notify(`Added ${list.length} player${list.length === 1 ? '' : 's'}`)
+          notify(data.message)
           setBulkModalOpen(false)
         } else {
           notify((data as { message?: string }).message || 'Could not import players')
@@ -798,22 +804,6 @@ export default function Page() {
         }
       } catch {
         notify('Failed to schedule match')
-      } finally {
-        loadState()
-      }
-    })
-  }
-
-  const handleGenerateRoundRobin = async () => {
-    guardAuctioneer(async () => {
-      if (matches.length > 0 && !confirm(`Replace all ${matches.length} fixtures? Tosses and results entered so far will be lost.`)) {
-        return
-      }
-      try {
-        const data = await apiMatches.generateRoundRobin()
-        notify(data.message)
-      } catch {
-        notify('Failed to generate tournament fixtures')
       } finally {
         loadState()
       }
@@ -1066,7 +1056,6 @@ export default function Page() {
             setFilter={setScheduleFilter}
             isAuctioneer={isAuctioneer}
             onAddMatch={() => guardAuctioneer(() => setAddMatchModalOpen(true))}
-            onGenerateRoundRobin={handleGenerateRoundRobin}
             onDeleteMatch={handleDeleteMatch}
             onOpenToss={m => guardAuctioneer(() => setTossModalMatch(m))}
             onOpenResult={m => guardAuctioneer(() => setResultModalMatch(m))}

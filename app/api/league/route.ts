@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { serverError } from '@/lib/server/respond'
+import { reply, serverError } from '@/lib/server/respond'
 import { requireAuth } from '@/lib/server/auth/token'
 import { readDb, writeDb } from '@/lib/server/db'
 
@@ -36,7 +36,7 @@ export async function PUT(req: Request) {
     }
 
     await writeDb(db)
-    return NextResponse.json({ success: true, league: db.league })
+    return reply({ success: true, league: db.league })
   } catch (err) {
     return serverError(err)
   }

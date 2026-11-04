@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { serverError } from '@/lib/server/respond'
+import { reply, serverError } from '@/lib/server/respond'
 import { requireAuth } from '@/lib/server/auth/token'
-import { recordMatchResult, getAllMatches } from '@/lib/server/services/matchService'
+import { recordMatchResult } from '@/lib/server/services/matchService'
 
 export async function POST(
   req: Request,
@@ -14,8 +14,7 @@ export async function POST(
     const { id } = await params
     const body = await req.json()
     const result = await recordMatchResult(id, body)
-    const matches = await getAllMatches()
-    return NextResponse.json({ ...result, matches }, { status: result.success ? 200 : 400 })
+    return reply(result)
   } catch (err) {
     return serverError(err)
   }
