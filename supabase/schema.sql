@@ -16,6 +16,9 @@ create table if not exists league (
   rev            integer not null default 0,                     -- bumped on every save, so two saves cannot overwrite each other
   updated_at     timestamptz not null default now()
 );
+-- Added later: how many league matches come before the knockouts, and the knockout format
+alter table league add column if not exists league_matches integer check (league_matches between 1 and 200);
+alter table league add column if not exists knockout text not null default 'semis' check (knockout in ('semis', 'final'));
 
 create table if not exists superadmin (
   id       smallint primary key default 1 check (id = 1),
@@ -115,7 +118,7 @@ create or replace function load_league() returns jsonb
 language sql stable set search_path = public as $$
   select case when not exists (select 1 from league) then null else jsonb_build_object(
     'rev', (select rev from league),
-    'league', (select jsonb_build_object('name', name, 'season', season, 'defaultPurse', default_purse, 'maxSquadSize', max_squad_size) from league),
+    'league', (select jsonb_build_object('name', name, 'season', season, 'defaultPurse', default_purse, 'maxSquadSize', max_squad_size, 'leagueMatches', league_matches, 'knockout', knockout) from league),
     'auctioneer', coalesce((select jsonb_strip_nulls(jsonb_build_object('name', name, 'pinHash', pin_hash)) from superadmin), '{"name":"Chief Auctioneer"}'::jsonb),
     'teams', coalesce((select jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
         'id', id, 'name', name, 'short', short, 'color', color, 'owner', owner, 'tagline', tagline,
@@ -154,6 +157,8 @@ begin
     season = doc->'league'->>'season',
     default_purse = (doc->'league'->>'defaultPurse')::integer,
     max_squad_size = (doc->'league'->>'maxSquadSize')::integer,
+    league_matches = (doc->'league'->>'leagueMatches')::integer,
+    knockout = coalesce(doc->'league'->>'knockout', 'semis'),
     rev = rev + 1,
     updated_at = now()
   where id = 1 and rev = base_rev;
@@ -162,9 +167,10 @@ begin
     if base_rev <> 0 or exists (select 1 from league) then
       return false;
     end if;
-    insert into league (id, name, season, default_purse, max_squad_size, rev)
+    insert into league (id, name, season, default_purse, max_squad_size, league_matches, knockout, rev)
     values (1, doc->'league'->>'name', doc->'league'->>'season',
-            (doc->'league'->>'defaultPurse')::integer, (doc->'league'->>'maxSquadSize')::integer, 1);
+            (doc->'league'->>'defaultPurse')::integer, (doc->'league'->>'maxSquadSize')::integer,
+            (doc->'league'->>'leagueMatches')::integer, coalesce(doc->'league'->>'knockout', 'semis'), 1);
   end if;
 
   insert into superadmin (id, name, pin_hash)

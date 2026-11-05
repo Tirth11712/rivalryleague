@@ -41,6 +41,8 @@ import { PlayersView } from '@/components/views/PlayersView'
 import { ScheduleView } from '@/components/views/ScheduleView'
 import { ResultsView } from '@/components/views/ResultsView'
 import { StandingsView } from '@/components/views/StandingsView'
+import { KnockoutModal } from '@/components/modals/KnockoutModal'
+import type { KnockoutFormat, Pairing } from '@/lib/shared/playoffs'
 
 // Popups load the first time they open
 const AuthModal = dynamic(() => import('@/components/modals/AuthModal').then(m => m.AuthModal))
@@ -79,6 +81,9 @@ export default function Page() {
   const [season, setSeason] = useState('01')
   const [defaultPurse, setDefaultPurse] = useState(20000)
   const [maxSquadSize, setMaxSquadSize] = useState(11)
+  const [leagueMatches, setLeagueMatches] = useState<number | null>(null)
+  const [knockout, setKnockout] = useState<KnockoutFormat>('semis')
+  const [knockoutRound, setKnockoutRound] = useState<{ round: 'semis' | 'final'; pairings: Pairing[] } | null>(null)
 
   // Auctioneer Master Auth State
   const [isAuctioneer, setIsAuctioneer] = useState(false)
@@ -160,6 +165,8 @@ export default function Page() {
         setSeason(league.season)
         setDefaultPurse(league.defaultPurse || 20000)
         setMaxSquadSize(league.maxSquadSize || 11)
+        setLeagueMatches(league.leagueMatches || null)
+        setKnockout(league.knockout === 'final' ? 'final' : 'semis')
       }
     }
   }, [])
@@ -429,6 +436,8 @@ export default function Page() {
     season: string
     defaultPurse: number
     maxSquadSize: number
+    leagueMatches?: number
+    knockout?: KnockoutFormat
   }) => {
     guardAuctioneer(async () => {
       try {
@@ -796,19 +805,41 @@ export default function Page() {
     teamB: string
     date: string
     venue?: string
-    stage?: string
+    leagueMatches?: number // asked in the form the first time, when League Settings has no count yet
   }) => {
-    guardAuctioneer(async () => {
+    return guardAuctioneer(async () => {
       try {
-        const data = await apiMatches.create(m)
+        const { leagueMatches: total, ...fixture } = m
+        if (total) {
+          const set = await apiLeague.updateSettings({ leagueMatches: total })
+          if (!set.success) {
+            notify(set.message || 'Could not save the number of league matches')
+            return
+          }
+        }
+        const data = await apiMatches.create(fixture)
         if (data.success) {
-          notify(`Match fixture scheduled: ${m.teamA} vs ${m.teamB}`)
+          notify(data.message || `Match fixture scheduled: ${m.teamA} vs ${m.teamB}`)
           setAddMatchModalOpen(false)
         } else {
           notify(data.message || 'Could not schedule match')
         }
       } catch {
         notify('Failed to schedule match')
+      } finally {
+        loadState()
+      }
+    })
+  }
+
+  const handleCreateKnockouts = async (data: { round: 'semis' | 'final'; pairings: Pairing[]; date: string; venue: string }) => {
+    return guardAuctioneer(async () => {
+      try {
+        const res = await apiMatches.createKnockouts(data)
+        notify(res.message)
+        if (res.success) setKnockoutRound(null)
+      } catch {
+        notify('Failed to create the knockout matches')
       } finally {
         loadState()
       }
@@ -1065,10 +1096,15 @@ export default function Page() {
             onOpenToss={m => guardAuctioneer(() => setTossModalMatch(m))}
             onOpenResult={m => guardAuctioneer(() => setResultModalMatch(m))}
             onQuickToss={handleQuickToss}
+            leagueMatches={leagueMatches}
+            knockout={knockout}
+            onCreateKnockouts={(round, pairings) => guardAuctioneer(() => setKnockoutRound({ round, pairings }))}
           />
         )}
 
-        {page === 'standings' && <StandingsView teams={teams} matches={matches} />}
+        {page === 'standings' && (
+          <StandingsView teams={teams} matches={matches} leagueMatches={leagueMatches} knockout={knockout} />
+        )}
 
         {page === 'results' && (
           <ResultsView
@@ -1141,8 +1177,19 @@ export default function Page() {
       {addMatchModalOpen && (
         <AddMatchModal
           teams={teams}
+          matches={matches}
+          leagueMatches={leagueMatches}
           onClose={() => setAddMatchModalOpen(false)}
           onAdd={handleAddMatch}
+        />
+      )}
+
+      {knockoutRound && (
+        <KnockoutModal
+          round={knockoutRound.round}
+          pairings={knockoutRound.pairings}
+          onClose={() => setKnockoutRound(null)}
+          onCreate={handleCreateKnockouts}
         />
       )}
 
@@ -1176,6 +1223,8 @@ export default function Page() {
           season={season}
           defaultPurse={defaultPurse}
           maxSquadSize={maxSquadSize}
+          leagueMatches={leagueMatches}
+          knockout={knockout}
           onClose={() => setSetupOpen(false)}
           onSave={handleSaveLeagueSettings}
           onChangePin={handleChangePin}

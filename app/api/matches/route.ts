@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/server/auth/token'
 import {
   getAllMatches,
   createMatch,
+  createKnockouts,
   deleteMatch
 } from '@/lib/server/services/matchService'
 
@@ -22,6 +23,10 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
+    if (body.action === 'create-knockouts') {
+      const round = body.round === 'final' ? 'final' : 'semis'
+      return reply(await createKnockouts({ round, pairings: body.pairings, date: body.date, venue: body.venue }))
+    }
     const result = await createMatch(body)
     return reply(result)
   } catch (err) {

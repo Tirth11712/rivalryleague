@@ -151,7 +151,14 @@ export const apiOwner = {
 export const apiLeague = {
   getSettings: () =>
     request<{ success: boolean; league: { name: string; season: string; defaultPurse: number; maxSquadSize: number } }>('/api/league'),
-  updateSettings: (settings: { name?: string; season?: string; defaultPurse?: number; maxSquadSize?: number }) =>
+  updateSettings: (settings: {
+    name?: string
+    season?: string
+    defaultPurse?: number
+    maxSquadSize?: number
+    leagueMatches?: number
+    knockout?: 'semis' | 'final'
+  }) =>
     request<{ success: boolean; message: string; league: any }>('/api/league', {
       method: 'PUT',
       body: JSON.stringify(settings)
@@ -298,6 +305,11 @@ export const apiMatches = {
     request<{ success: boolean; match?: Match; matches: Match[]; message?: string }>('/api/matches', {
       method: 'POST',
       body: JSON.stringify(data)
+    }),
+  createKnockouts: (data: { round: 'semis' | 'final'; pairings: { teamA: string; teamB: string }[]; date: string; venue?: string }) =>
+    request<{ success: boolean; message: string }>('/api/matches', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'create-knockouts', ...data })
     }),
   delete: (id: string) =>
     request<{ success: boolean; message: string; matches: Match[] }>(`/api/matches?id=${encodeURIComponent(id)}`, {

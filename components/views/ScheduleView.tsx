@@ -1,7 +1,9 @@
 'use client'
 
-import { CalendarDays, Plus, Coins, Trash2, ClipboardList } from 'lucide-react'
+import { useMemo } from 'react'
+import { CalendarDays, Plus, Coins, Trash2, ClipboardList, Trophy } from 'lucide-react'
 import type { Match, Team } from '@/lib/server/db'
+import { isLeagueMatch, playoffPhase, type KnockoutFormat, type Pairing } from '@/lib/shared/playoffs'
 
 export function ScheduleView({
   matches,
@@ -13,7 +15,10 @@ export function ScheduleView({
   onDeleteMatch,
   onOpenToss,
   onOpenResult,
-  onQuickToss
+  onQuickToss,
+  leagueMatches,
+  knockout,
+  onCreateKnockouts
 }: {
   matches: Match[]
   teams: Team[]
@@ -25,7 +30,24 @@ export function ScheduleView({
   onOpenToss: (m: Match) => void
   onOpenResult: (m: Match) => void
   onQuickToss: () => void
+  leagueMatches: number | null
+  knockout: KnockoutFormat
+  onCreateKnockouts: (round: 'semis' | 'final', pairings: Pairing[]) => void
 }) {
+  const phase = useMemo(() => playoffPhase(teams, matches, leagueMatches, knockout), [teams, matches, leagueMatches, knockout])
+  const leagueCount = matches.filter(isLeagueMatch).length
+  const banner = (() => {
+    switch (phase.phase) {
+      case 'unset': return isAuctioneer ? 'Set the number of league matches (asked when you add a match) so the semi-finalists and finalists can be decided.' : ''
+      case 'league': return `League stage: ${phase.played} of ${phase.total} matches played${phase.scheduled < phase.total ? ` · ${phase.total - phase.scheduled} still to schedule` : ''}.`
+      case 'too-few-teams': return `League stage complete. ${knockout === 'semis' ? 'Semi-finals need' : 'The final needs'} at least ${phase.needed} teams.`
+      case 'semis-ready': return 'League stage complete - the top 4 go to the semi-finals.'
+      case 'semis': return 'Semi-finals under way. The final can be created once both have a result.'
+      case 'final-ready': return 'Finalists decided.'
+      case 'final': return 'The final is scheduled.'
+      case 'done': return `🏆 ${phase.champion} are the champions!`
+    }
+  })()
   const filtered = matches.filter(m => filter === 'ALL' || m.status === filter)
   const count = (status: string) => matches.filter(m => m.status === status).length
 
@@ -45,10 +67,28 @@ export function ScheduleView({
         {isAuctioneer && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="ghost-btn btn-sm" onClick={onQuickToss}><Coins size={14} /> Quick Toss</button>
-            <button className="primary-btn btn-sm" onClick={onAddMatch}><Plus size={14} /> Add Match</button>
+            <button className="primary-btn btn-sm" onClick={onAddMatch}>
+              <Plus size={14} /> Add Match{leagueMatches ? ` (${Math.min(leagueCount, leagueMatches)}/${leagueMatches})` : ''}
+            </button>
           </div>
         )}
       </div>
+
+      {banner && (
+        <div className="card card-pad" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Trophy size={16} style={{ color: 'var(--gold)' }} /> {banner}</span>
+          {isAuctioneer && phase.phase === 'semis-ready' && (
+            <button className="primary-btn btn-sm" onClick={() => onCreateKnockouts('semis', phase.pairings)}>
+              <Trophy size={14} /> Create semi-finals
+            </button>
+          )}
+          {isAuctioneer && phase.phase === 'final-ready' && (
+            <button className="primary-btn btn-sm" onClick={() => onCreateKnockouts('final', phase.pairings)}>
+              <Trophy size={14} /> Create final
+            </button>
+          )}
+        </div>
+      )}
 
       {matches.length === 0 ? (
         <div className="empty-state">

@@ -73,6 +73,8 @@ export type DatabaseSchema = {
     season: string
     defaultPurse: number
     maxSquadSize: number
+    leagueMatches?: number | null // league-stage matches before the knockouts; unset until the superadmin chooses
+    knockout?: 'semis' | 'final' // top 4 play semi-finals, or top 2 go straight to the final (default semis)
   }
   teams: Team[]
   players: Player[]

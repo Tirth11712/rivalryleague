@@ -8,6 +8,8 @@ export function SetupModal({
   season,
   defaultPurse,
   maxSquadSize,
+  leagueMatches,
+  knockout,
   onClose,
   onSave,
   onChangePin
@@ -16,14 +18,25 @@ export function SetupModal({
   season: string
   defaultPurse: number
   maxSquadSize: number
+  leagueMatches: number | null
+  knockout: 'semis' | 'final'
   onClose: () => void
-  onSave: (settings: { name: string; season: string; defaultPurse: number; maxSquadSize: number }) => void
+  onSave: (settings: {
+    name: string
+    season: string
+    defaultPurse: number
+    maxSquadSize: number
+    leagueMatches?: number
+    knockout: 'semis' | 'final'
+  }) => void
   onChangePin: (currentPin: string, newPin: string) => Promise<string | null>
 }) {
   const [name, setName] = useState(leagueName)
   const [sea, setSea] = useState(season)
   const [purse, setPurse] = useState(defaultPurse)
   const [squad, setSquad] = useState(maxSquadSize)
+  const [games, setGames] = useState(leagueMatches ? String(leagueMatches) : '')
+  const [format, setFormat] = useState(knockout)
 
   // PIN Changer State
   const [currentPin, setCurrentPin] = useState('')
@@ -38,7 +51,9 @@ export function SetupModal({
       name: name.trim() || 'The Rivalry League',
       season: sea.trim() || '01',
       defaultPurse: purse || 20000,
-      maxSquadSize: squad || 11
+      maxSquadSize: squad || 11,
+      leagueMatches: Number(games) || undefined,
+      knockout: format
     })
   }
 
@@ -107,6 +122,32 @@ export function SetupModal({
               </select>
             </label>
           </div>
+
+          <div className="field-row" style={{ marginTop: 0 }}>
+            <label>
+              LEAGUE MATCHES
+              <input
+                type="number"
+                min={1}
+                max={200}
+                value={games}
+                onChange={e => setGames(e.target.value)}
+                placeholder="e.g. 6"
+              />
+            </label>
+            <label>
+              KNOCKOUT FORMAT
+              <select value={format} onChange={e => setFormat(e.target.value === 'final' ? 'final' : 'semis')}>
+                <option value="semis">Top 4 → semi-finals → final</option>
+                <option value="final">Top 2 → final</option>
+              </select>
+            </label>
+          </div>
+          <small style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '-6px' }}>
+            {format === 'semis'
+              ? 'After the last league match: 1st v 4th and 2nd v 3rd, winners play the final.'
+              : 'After the last league match: 1st v 2nd in the final.'}
+          </small>
 
           <button type="submit" className="primary-btn" style={{ marginTop: '4px' }}>
             <Check size={16} /> Save League Settings

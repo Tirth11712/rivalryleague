@@ -4,12 +4,25 @@ import { useMemo } from 'react'
 import { Trophy } from 'lucide-react'
 import type { Match, Team } from '@/lib/server/db'
 import { computeStandings, WIN_POINTS, TIE_POINTS } from '@/lib/shared/standings'
+import { isLeagueMatch, playoffPhase, qualifiersFor, type KnockoutFormat } from '@/lib/shared/playoffs'
 
-const QUALIFIERS = 2
-
-export function StandingsView({ teams, matches }: { teams: Team[]; matches: Match[] }) {
+export function StandingsView({
+  teams,
+  matches: allMatches,
+  leagueMatches,
+  knockout
+}: {
+  teams: Team[]
+  matches: Match[]
+  leagueMatches: number | null
+  knockout: KnockoutFormat
+}) {
+  const QUALIFIERS = qualifiersFor(knockout)
+  // Semi-finals and the final do not count towards the table
+  const matches = useMemo(() => allMatches.filter(isLeagueMatch), [allMatches])
   const rows = useMemo(() => computeStandings(teams, matches), [teams, matches])
   const completed = matches.filter(m => m.status === 'Completed').length
+  const phase = useMemo(() => playoffPhase(teams, allMatches, leagueMatches, knockout), [teams, allMatches, leagueMatches, knockout])
   const recent = useMemo(
     () => matches.filter(m => m.status === 'Completed' && m.result).slice(-5).reverse(),
     [matches]
@@ -19,10 +32,16 @@ export function StandingsView({ teams, matches }: { teams: Team[]; matches: Matc
     <div>
       <div className="page-heading">
         <div>
-          <span className="section-kicker">POINTS TABLE · {completed}/{matches.length} MATCHES PLAYED</span>
+          <span className="section-kicker">POINTS TABLE · {completed}/{leagueMatches || matches.length} LEAGUE MATCHES PLAYED</span>
           <h2>League <em>leaderboard</em></h2>
         </div>
       </div>
+
+      {phase.phase === 'done' && (
+        <div className="card card-pad" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Trophy size={18} style={{ color: 'var(--gold)' }} /> <b>{phase.champion}</b> won the final - season champions!
+        </div>
+      )}
 
       {teams.length === 0 ? (
         <div className="empty-state"><h3>No franchises yet</h3><p>Register teams to see the leaderboard.</p></div>
@@ -87,7 +106,8 @@ export function StandingsView({ teams, matches }: { teams: Team[]; matches: Matc
       <p className="standings-note">
         Win = {WIN_POINTS} pts · Tie / No result = {TIE_POINTS} pt each · Ranking: points, then net run rate (NRR), then wins.
         NRR = (runs scored ÷ overs faced) − (runs conceded ÷ overs bowled); a side bowled out is charged its full quota of overs.
-        Top {QUALIFIERS} are highlighted.
+        Top {QUALIFIERS} are highlighted: {knockout === 'semis' ? 'they play the semi-finals (1st v 4th, 2nd v 3rd)' : 'they play the final'}.
+        A tied or abandoned knockout match sends the higher-placed team through.
       </p>
     </div>
   )

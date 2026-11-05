@@ -2,92 +2,135 @@
 
 import React, { useState } from 'react'
 import { Plus, X } from 'lucide-react'
-import type { Team } from '@/lib/server/db'
+import type { Match, Team } from '@/lib/server/db'
+import { isLeagueMatch } from '@/lib/shared/playoffs'
 
+/** Schedules a league match. Semi-finals and the final are created from the Schedule page instead. */
 export function AddMatchModal({
   teams,
+  matches,
+  leagueMatches,
   onClose,
   onAdd
 }: {
   teams: Team[]
+  matches: Match[]
+  leagueMatches: number | null
   onClose: () => void
-  onAdd: (match: { teamA: string; teamB: string; date: string; venue?: string; stage?: string }) => void
+  onAdd: (match: { teamA: string; teamB: string; date: string; venue?: string; leagueMatches?: number }) => Promise<unknown> | void
 }) {
   const [teamA, setTeamA] = useState(teams[0]?.name || '')
   const [teamB, setTeamB] = useState(teams[1]?.name || '')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [venue, setVenue] = useState('Premier Grounds')
-  const [stage, setStage] = useState('League Match')
+  const [total, setTotal] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const scheduled = matches.filter(isLeagueMatch).length
+  const knockoutsStarted = matches.some(m => !isLeagueMatch(m))
+  const full = !!leagueMatches && scheduled >= leagueMatches
+  const askTotal = !leagueMatches
+  const totalNum = Math.floor(Number(total))
+  const totalOk = !askTotal || (totalNum >= Math.max(1, scheduled + 1) && totalNum <= 200)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!teamA || !teamB || teamA === teamB) return
-    onAdd({
-      teamA,
-      teamB,
-      date,
-      venue,
-      stage
-    })
+    if (saving || !teamA || !teamB || teamA === teamB || !totalOk) return
+    setSaving(true)
+    try {
+      await onAdd({ teamA, teamB, date, venue, ...(askTotal ? { leagueMatches: totalNum } : {}) })
+    } finally {
+      setSaving(false)
+    }
   }
+
+  const blocked = knockoutsStarted
+    ? 'The knockouts have started, so no more league matches can be added.'
+    : full
+    ? `All ${leagueMatches} league matches are scheduled. The knockout button appears on the Schedule page once every league match has a result. To add more, raise “League matches” in League Settings.`
+    : ''
 
   return (
     <div className="modal-backdrop">
       <div className="setup-modal" style={{ maxWidth: '480px' }}>
         <div className="modal-head">
           <div>
-            <span className="section-kicker">SUPERADMIN · FIXTURES</span>
+            <span className="section-kicker">
+              SUPERADMIN · {leagueMatches ? `LEAGUE MATCH ${Math.min(scheduled + 1, leagueMatches)} OF ${leagueMatches}` : 'FIXTURES'}
+            </span>
             <h2>Schedule <em>Match.</em></h2>
           </div>
           <button className="icon-btn" onClick={onClose}><X size={16} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ marginTop: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div className="field-row" style={{ marginTop: 0 }}>
+        {blocked ? (
+          <>
+            <p style={{ marginTop: 18, color: 'var(--muted)', lineHeight: 1.5 }}>{blocked}</p>
+            <div className="modal-actions">
+              <button type="button" className="primary-btn" onClick={onClose}>OK</button>
+            </div>
+          </>
+        ) : (
+          <form onSubmit={handleSubmit} style={{ marginTop: '18px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {askTotal && (
+              <label>
+                HOW MANY LEAGUE MATCHES THIS SEASON?
+                <input
+                  type="number"
+                  min={Math.max(1, scheduled + 1)}
+                  max={200}
+                  value={total}
+                  onChange={e => setTotal(e.target.value)}
+                  placeholder={scheduled ? `at least ${scheduled + 1}` : 'e.g. 6'}
+                  required
+                  autoFocus
+                />
+                <small style={{ color: 'var(--muted)', fontSize: 12 }}>
+                  Asked once - after the last one, the points table decides the semi-finalists and finalists. You can change it in League Settings.
+                </small>
+              </label>
+            )}
+
+            <div className="field-row" style={{ marginTop: 0 }}>
+              <label>
+                TEAM 1 (HOME)
+                <select value={teamA} onChange={e => setTeamA(e.target.value)} required>
+                  <option value="">-- Choose Team 1 --</option>
+                  {teams.map(t => (
+                    <option key={t.id} value={t.name}>{t.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                TEAM 2 (AWAY)
+                <select value={teamB} onChange={e => setTeamB(e.target.value)} required>
+                  <option value="">-- Choose Team 2 --</option>
+                  {teams.map(t => (
+                    <option key={t.id} value={t.name} disabled={t.name === teamA}>{t.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
             <label>
-              TEAM 1 (HOME)
-              <select value={teamA} onChange={e => setTeamA(e.target.value)} required>
-                <option value="">-- Choose Team 1 --</option>
-                {teams.map(t => (
-                  <option key={t.id} value={t.name}>{t.name}</option>
-                ))}
-              </select>
+              DATE
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
             </label>
+
             <label>
-              TEAM 2 (AWAY)
-              <select value={teamB} onChange={e => setTeamB(e.target.value)} required>
-                <option value="">-- Choose Team 2 --</option>
-                {teams.map(t => (
-                  <option key={t.id} value={t.name} disabled={t.name === teamA}>{t.name}</option>
-                ))}
-              </select>
+              VENUE
+              <input value={venue} onChange={e => setVenue(e.target.value)} placeholder="e.g. Wankhede Stadium" />
             </label>
-          </div>
 
-          <label>
-            DATE
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
-          </label>
-
-          <label>
-            VENUE
-            <input value={venue} onChange={e => setVenue(e.target.value)} placeholder="e.g. Wankhede Stadium" />
-          </label>
-
-          <label>
-            STAGE / ROUND
-            <input value={stage} onChange={e => setStage(e.target.value)} placeholder="e.g. Match 1 / Semi-Final" />
-          </label>
-
-          <div className="modal-actions">
-            <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="primary-btn" disabled={!teamA || !teamB || teamA === teamB}>
-              <Plus size={16} /> Add Match Fixture
-            </button>
-          </div>
-        </form>
+            <div className="modal-actions">
+              <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
+              <button type="submit" className="primary-btn" disabled={saving || !teamA || !teamB || teamA === teamB || !totalOk}>
+                <Plus size={16} /> {saving ? 'Adding…' : 'Add League Match'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   )
 }
-

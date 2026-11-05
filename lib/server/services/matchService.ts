@@ -1,4 +1,5 @@
 import { readDb, writeDb, Match, InningsScore } from '../db'
+import { isLeagueMatch, LEAGUE_STAGE, playoffPhase, qualifiersFor } from '@/lib/shared/playoffs'
 
 export async function getAllMatches(): Promise<Match[]> {
   const db = await readDb()
@@ -20,10 +21,29 @@ export async function createMatch(data: {
   }
 
   const db = await readDb()
+  if (!db.teams.some(t => t.name === data.teamA) || !db.teams.some(t => t.name === data.teamB)) {
+    return { success: false, message: 'Choose two registered teams' }
+  }
+  // Semi-finals and the final come from the points table, through createKnockouts
+  if (!isLeagueMatch({ stage: (data.stage || '').trim() })) {
+    return { success: false, message: 'Semi-finals and the final are created from the points table once the league stage is over' }
+  }
+  const total = db.league.leagueMatches
+  if (!total) {
+    return { success: false, message: 'Set how many league matches the season has first (League Settings)' }
+  }
+  const leagueCount = db.matches.filter(isLeagueMatch).length
+  if (leagueCount >= total) {
+    return { success: false, message: `All ${total} league matches are already scheduled` }
+  }
+  if (db.matches.some(m => !isLeagueMatch(m))) {
+    return { success: false, message: 'The knockouts have started - no more league matches can be added' }
+  }
+
   const newMatch: Match = {
-    id: `m_${Date.now()}`,
+    id: newMatchId(db.matches),
     matchNumber: db.matches.length + 1,
-    stage: data.stage || 'League Match',
+    stage: LEAGUE_STAGE,
     teamA: data.teamA,
     teamB: data.teamB,
     date: data.date || new Date().toISOString().split('T')[0],
@@ -33,7 +53,72 @@ export async function createMatch(data: {
 
   db.matches.push(newMatch)
   await writeDb(db)
-  return { success: true, match: newMatch }
+  return { success: true, match: newMatch, message: `League match ${leagueCount + 1} of ${total} scheduled: ${data.teamA} vs ${data.teamB}` }
+}
+
+function newMatchId(existing: Match[]): string {
+  let id = `m_${Date.now()}`
+  for (let i = 2; existing.some(m => m.id === id); i++) id = `m_${Date.now()}_${i}`
+  return id
+}
+
+/**
+ * Creates the semi-finals or the final once the previous stage is complete. The pairings start
+ * from the points table on the superadmin's screen; they may change who plays whom, but only
+ * among teams that qualified.
+ */
+export async function createKnockouts(input: {
+  round: 'semis' | 'final'
+  pairings: { teamA: string; teamB: string }[]
+  date?: string
+  venue?: string
+}): Promise<{ success: boolean; message: string }> {
+  const db = await readDb()
+  const format = db.league.knockout || 'semis'
+  const state = playoffPhase(db.teams, db.matches, db.league.leagueMatches, format)
+  const wanted = input.round === 'semis' ? 'semis-ready' : 'final-ready'
+  if (state.phase !== wanted) {
+    const why: Record<string, string> = {
+      unset: 'Set how many league matches the season has first',
+      league: 'Every league match needs a result first',
+      semis: 'Both semi-finals need a result first',
+      final: 'The final is already scheduled',
+      done: 'The final has already been played',
+      'too-few-teams': `This format needs at least ${qualifiersFor(format)} teams`,
+      'semis-ready': 'The semi-finals come before the final',
+      'final-ready': format === 'final' ? 'This league goes straight to the final' : 'The semi-finals are already scheduled'
+    }
+    return { success: false, message: why[state.phase] }
+  }
+
+  const expected = state.pairings
+  const pairings = input.pairings || []
+  if (pairings.length !== expected.length) {
+    return { success: false, message: `Expected ${expected.length} match${expected.length === 1 ? '' : 'es'}` }
+  }
+  const qualified = new Set(expected.flatMap(p => [p.teamA, p.teamB]))
+  const picked = pairings.flatMap(p => [p.teamA, p.teamB])
+  if (new Set(picked).size !== picked.length || !picked.every(n => qualified.has(n))) {
+    return { success: false, message: `Each qualified team plays once: ${[...qualified].join(', ')}` }
+  }
+
+  const date = input.date || new Date().toISOString().split('T')[0]
+  const venue = (input.venue || '').trim() || 'Main Stadium Arena'
+  pairings.forEach((p, i) => {
+    db.matches.push({
+      id: newMatchId(db.matches),
+      matchNumber: db.matches.length + 1,
+      stage: expected[i].stage,
+      teamA: p.teamA,
+      teamB: p.teamB,
+      date,
+      venue,
+      status: 'Scheduled'
+    })
+  })
+  await writeDb(db)
+  const made = pairings.map((p, i) => `${expected[i].stage}: ${p.teamA} vs ${p.teamB}`).join(' · ')
+  return { success: true, message: made }
 }
 
 export async function deleteMatch(id: string): Promise<{ success: boolean; message: string }> {
