@@ -215,7 +215,8 @@ export default function Page() {
 
   // Live auto-sync so a second screen (projector / spectators) follows the auction
   const watchingAuction = page === 'auction'
-  const auctionSyncMs = liveSpin ? 700 : current ? 2000 : watchingAuction ? 1500 : 4000 // catches a spin as it starts
+  // Fast while a player is up for bids, so every owner sees a rival's bid within a second
+  const auctionSyncMs = liveSpin || current ? 700 : watchingAuction ? 1500 : 4000
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -324,13 +325,17 @@ export default function Page() {
     notify('Signed out')
   }
 
+  const ownerBidInFlight = useRef(false)
   const handleOwnerBid = async (increment: number) => {
+    if (ownerBidInFlight.current) return // a double tap must not send a second bid
+    ownerBidInFlight.current = true
     try {
       const data = await apiOwner.bid(increment)
       notify(data.message)
     } catch {
       notify('Failed to place bid')
     } finally {
+      ownerBidInFlight.current = false
       loadState()
     }
   }

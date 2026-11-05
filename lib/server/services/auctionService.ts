@@ -211,11 +211,14 @@ export async function placeBid(
   amount: number,
   increment?: number
 ): Promise<BidResult> {
-  for (let attempt = 0; attempt < 4; attempt++) {
+  // Bids tapped at the same moment collide on save; each retry reads the newer price and tries again,
+  // after a short random wait so the colliding requests don't keep landing together
+  for (let attempt = 0; attempt < 10; attempt++) {
     try {
       return await tryBid(teamName, amount, increment)
     } catch (err) {
       if (!(err instanceof DbConflictError)) throw err
+      await new Promise(r => setTimeout(r, 10 + Math.random() * 40 * (attempt + 1)))
     }
   }
   return { success: false, message: 'Too many bids at once - please bid again' }
