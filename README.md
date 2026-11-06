@@ -43,7 +43,7 @@ Players do not have logins.
 
 **League**
 - Fixtures added one at a time, or all at once with **Round Robin** (single or double, home and away; pairings already scheduled are skipped and the league match count grows to fit). The number of league matches is set in League Settings (or asked on the first Add Match), and Add Match stops at that number
-- Knockouts, chosen in League Settings: top 4 play semi-finals (1st v 4th, 2nd v 3rd) then the final, or top 2 go straight to the final. Once every league match has a result, a **Create semi-finals** / **Create final** button appears on the Schedule page, filled in from the points table. A tied or abandoned knockout sends the higher-placed team through. Knockout matches do not count in the points table
+- Knockouts, chosen in League Settings: top 4 play semi-finals (1st v 4th, 2nd v 3rd) then the final, top 2 go straight to the final, or the **eliminator** format: each pair meets once in the league, 1st goes straight to the final and 2nd v 3rd play an eliminator whose winner meets 1st (Add Match and round robin then refuse a second meeting). Once every league match has a result, a **Create semi-finals** / **Create eliminator** / **Create final** button appears on the Schedule page, filled in from the points table. A tied or abandoned knockout sends the higher-placed team through. Knockout matches do not count in the points table
 - 3D coin toss, closed once a match is completed
 - Scorecard entry, including all-out, ties and no results
 - Leaderboard ranked by points, then net run rate, then wins

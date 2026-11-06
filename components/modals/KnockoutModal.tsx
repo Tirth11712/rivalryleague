@@ -2,19 +2,19 @@
 
 import React, { useState } from 'react'
 import { Trophy, X } from 'lucide-react'
-import type { Pairing } from '@/lib/shared/playoffs'
+import type { KnockoutRound, Pairing } from '@/lib/shared/playoffs'
 
-/** Confirms the semi-finals or the final, pre-filled from the points table. */
+/** Confirms the semi-finals, the eliminator or the final, pre-filled from the points table. */
 export function KnockoutModal({
   round,
   pairings,
   onClose,
   onCreate
 }: {
-  round: 'semis' | 'final'
+  round: KnockoutRound
   pairings: Pairing[]
   onClose: () => void
-  onCreate: (data: { round: 'semis' | 'final'; pairings: Pairing[]; date: string; venue: string }) => Promise<unknown> | void
+  onCreate: (data: { round: KnockoutRound; pairings: Pairing[]; date: string; venue: string }) => Promise<unknown> | void
 }) {
   const [picks, setPicks] = useState(pairings)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -45,7 +45,7 @@ export function KnockoutModal({
         <div className="modal-head">
           <div>
             <span className="section-kicker">SUPERADMIN · KNOCKOUTS</span>
-            <h2>{round === 'semis' ? <>Create <em>semi-finals.</em></> : <>Create the <em>final.</em></>}</h2>
+            <h2>{round === 'semis' ? <>Create <em>semi-finals.</em></> : round === 'eliminator' ? <>Create the <em>eliminator.</em></> : <>Create the <em>final.</em></>}</h2>
           </div>
           <button className="icon-btn" onClick={onClose}><X size={16} /></button>
         </div>
@@ -54,7 +54,9 @@ export function KnockoutModal({
           <small style={{ color: 'var(--muted)', fontSize: 12, lineHeight: 1.5 }}>
             {round === 'semis'
               ? 'Filled in from the points table: 1st v 4th and 2nd v 3rd. Check it, then add the date and venue.'
-              : 'Filled in from the results so far. Check it, then add the date and venue.'}
+              : round === 'eliminator'
+                ? 'Filled in from the points table: 2nd v 3rd. The winner meets the league leader in the final.'
+                : 'Filled in from the results so far. Check it, then add the date and venue.'}
           </small>
 
           {picks.map((p, i) => (
@@ -88,7 +90,7 @@ export function KnockoutModal({
           <div className="modal-actions">
             <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
             <button type="submit" className="primary-btn" disabled={!valid || saving}>
-              <Trophy size={16} /> {saving ? 'Creating…' : round === 'semis' ? 'Create Semi-finals' : 'Create Final'}
+              <Trophy size={16} /> {saving ? 'Creating…' : round === 'semis' ? 'Create Semi-finals' : round === 'eliminator' ? 'Create Eliminator' : 'Create Final'}
             </button>
           </div>
         </form>

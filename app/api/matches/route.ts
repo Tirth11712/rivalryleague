@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       return reply(await generateRoundRobin({ double: !!body.double, startDate: body.startDate, venue: body.venue }))
     }
     if (body.action === 'create-knockouts') {
-      const round = body.round === 'final' ? 'final' : 'semis'
+      const round = body.round === 'final' ? 'final' : body.round === 'eliminator' ? 'eliminator' : 'semis'
       return reply(await createKnockouts({ round, pairings: body.pairings, date: body.date, venue: body.venue }))
     }
     const result = await createMatch(body)

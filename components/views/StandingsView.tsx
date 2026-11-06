@@ -106,7 +106,7 @@ export function StandingsView({
       <p className="standings-note">
         Win = {WIN_POINTS} pts · Tie / No result = {TIE_POINTS} pt each · Ranking: points, then net run rate (NRR), then wins.
         NRR = (runs scored ÷ overs faced) − (runs conceded ÷ overs bowled); a side bowled out is charged its full quota of overs.
-        Top {QUALIFIERS} are highlighted: {knockout === 'semis' ? 'they play the semi-finals (1st v 4th, 2nd v 3rd)' : 'they play the final'}.
+        Top {QUALIFIERS} are highlighted: {knockout === 'semis' ? 'they play the semi-finals (1st v 4th, 2nd v 3rd)' : knockout === 'eliminator' ? '1st goes straight to the final, 2nd v 3rd play the eliminator' : 'they play the final'}.
         A tied or abandoned knockout match sends the higher-placed team through.
       </p>
     </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { FORMAT_LABEL, KNOCKOUT_FORMATS, type KnockoutFormat } from '@/lib/shared/playoffs'
 import React, { useState } from 'react'
 import { Settings2, KeyRound, Check, X } from 'lucide-react'
 
@@ -19,7 +20,7 @@ export function SetupModal({
   defaultPurse: number
   maxSquadSize: number
   leagueMatches: number | null
-  knockout: 'semis' | 'final'
+  knockout: KnockoutFormat
   onClose: () => void
   onSave: (settings: {
     name: string
@@ -27,7 +28,7 @@ export function SetupModal({
     defaultPurse: number
     maxSquadSize: number
     leagueMatches?: number
-    knockout: 'semis' | 'final'
+    knockout: KnockoutFormat
   }) => void
   onChangePin: (currentPin: string, newPin: string) => Promise<string | null>
 }) {
@@ -137,16 +138,19 @@ export function SetupModal({
             </label>
             <label>
               KNOCKOUT FORMAT
-              <select value={format} onChange={e => setFormat(e.target.value === 'final' ? 'final' : 'semis')}>
-                <option value="semis">Top 4 → semi-finals → final</option>
-                <option value="final">Top 2 → final</option>
+              <select value={format} onChange={e => setFormat(e.target.value as KnockoutFormat)}>
+                {KNOCKOUT_FORMATS.map(f => (
+                  <option key={f} value={f}>{FORMAT_LABEL[f]}</option>
+                ))}
               </select>
             </label>
           </div>
           <small style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '-6px' }}>
             {format === 'semis'
               ? 'After the last league match: 1st v 4th and 2nd v 3rd, winners play the final.'
-              : 'After the last league match: 1st v 2nd in the final.'}
+              : format === 'eliminator'
+                ? 'Each pair meets once in the league. 1st goes straight to the final; 2nd v 3rd play the eliminator, and its winner meets 1st in the final.'
+                : 'After the last league match: 1st v 2nd in the final.'}
           </small>
 
           <button type="submit" className="primary-btn" style={{ marginTop: '4px' }}>

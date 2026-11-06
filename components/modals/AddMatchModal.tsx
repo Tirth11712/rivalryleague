@@ -10,12 +10,14 @@ export function AddMatchModal({
   teams,
   matches,
   leagueMatches,
+  oneMeeting,
   onClose,
   onAdd
 }: {
   teams: Team[]
   matches: Match[]
   leagueMatches: number | null
+  oneMeeting: boolean
   onClose: () => void
   onAdd: (match: { teamA: string; teamB: string; date: string; venue?: string; leagueMatches?: number }) => Promise<unknown> | void
 }) {
@@ -31,11 +33,15 @@ export function AddMatchModal({
   const full = !!leagueMatches && scheduled >= leagueMatches
   const askTotal = !leagueMatches
   const totalNum = Math.floor(Number(total))
+  // In the eliminator format each pair meets once in the league
+  const alreadyMet = oneMeeting && !!teamA && !!teamB && matches.some(
+    m => isLeagueMatch(m) && ((m.teamA === teamA && m.teamB === teamB) || (m.teamA === teamB && m.teamB === teamA))
+  )
   const totalOk = !askTotal || (totalNum >= Math.max(1, scheduled + 1) && totalNum <= 200)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (saving || !teamA || !teamB || teamA === teamB || !totalOk) return
+    if (saving || !teamA || !teamB || teamA === teamB || !totalOk || alreadyMet) return
     setSaving(true)
     try {
       await onAdd({ teamA, teamB, date, venue, ...(askTotal ? { leagueMatches: totalNum } : {}) })
@@ -86,7 +92,7 @@ export function AddMatchModal({
                   autoFocus
                 />
                 <small style={{ color: 'var(--muted)', fontSize: 12 }}>
-                  Asked once - after the last one, the points table decides the semi-finalists and finalists. You can change it in League Settings.
+                  Asked once - after the last one, the points table decides who plays the knockouts. You can change it in League Settings.
                 </small>
               </label>
             )}
@@ -112,6 +118,12 @@ export function AddMatchModal({
               </label>
             </div>
 
+            {alreadyMet && (
+              <small style={{ color: 'var(--red)', fontSize: 12, marginTop: -6 }}>
+                {teamA} and {teamB} already meet in the league - each pair plays once in this format.
+              </small>
+            )}
+
             <label>
               DATE
               <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
@@ -124,7 +136,7 @@ export function AddMatchModal({
 
             <div className="modal-actions">
               <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
-              <button type="submit" className="primary-btn" disabled={saving || !teamA || !teamB || teamA === teamB || !totalOk}>
+              <button type="submit" className="primary-btn" disabled={saving || !teamA || !teamB || teamA === teamB || !totalOk || alreadyMet}>
                 <Plus size={16} /> {saving ? 'Adding…' : 'Add League Match'}
               </button>
             </div>

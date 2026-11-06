@@ -19,6 +19,9 @@ create table if not exists league (
 -- Added later: how many league matches come before the knockouts, and the knockout format
 alter table league add column if not exists league_matches integer check (league_matches between 1 and 200);
 alter table league add column if not exists knockout text not null default 'semis' check (knockout in ('semis', 'final'));
+-- Added later: the eliminator format (1st straight to the final, 2nd v 3rd for the other place)
+alter table league drop constraint if exists league_knockout_check;
+alter table league add constraint league_knockout_check check (knockout in ('semis', 'final', 'eliminator'));
 
 create table if not exists superadmin (
   id       smallint primary key default 1 check (id = 1),

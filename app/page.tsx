@@ -41,7 +41,7 @@ import { PlayersView } from '@/components/views/PlayersView'
 import { ScheduleView } from '@/components/views/ScheduleView'
 import { ResultsView } from '@/components/views/ResultsView'
 import { StandingsView } from '@/components/views/StandingsView'
-import type { KnockoutFormat, Pairing } from '@/lib/shared/playoffs'
+import { KNOCKOUT_FORMATS, oneMeetingOnly, type KnockoutFormat, type KnockoutRound, type Pairing } from '@/lib/shared/playoffs'
 
 // Popups load the first time they open
 const AuthModal = dynamic(() => import('@/components/modals/AuthModal').then(m => m.AuthModal))
@@ -92,7 +92,7 @@ export default function Page() {
   const [leagueMatches, setLeagueMatches] = useState<number | null>(null)
   const [knockout, setKnockout] = useState<KnockoutFormat>('semis')
   const [roundRobinOpen, setRoundRobinOpen] = useState(false)
-  const [knockoutRound, setKnockoutRound] = useState<{ round: 'semis' | 'final'; pairings: Pairing[] } | null>(null)
+  const [knockoutRound, setKnockoutRound] = useState<{ round: KnockoutRound; pairings: Pairing[] } | null>(null)
 
   // Auctioneer Master Auth State
   const [isAuctioneer, setIsAuctioneer] = useState(false)
@@ -175,7 +175,7 @@ export default function Page() {
         setDefaultPurse(league.defaultPurse || 20000)
         setMaxSquadSize(league.maxSquadSize || 11)
         setLeagueMatches(league.leagueMatches || null)
-        setKnockout(league.knockout === 'final' ? 'final' : 'semis')
+        setKnockout(KNOCKOUT_FORMATS.includes(league.knockout as KnockoutFormat) ? (league.knockout as KnockoutFormat) : 'semis')
       }
     }
   }, [])
@@ -956,7 +956,7 @@ export default function Page() {
     })
   }
 
-  const handleCreateKnockouts = async (data: { round: 'semis' | 'final'; pairings: Pairing[]; date: string; venue: string }) => {
+  const handleCreateKnockouts = async (data: { round: KnockoutRound; pairings: Pairing[]; date: string; venue: string }) => {
     return guardAuctioneer(async () => {
       try {
         const res = await apiMatches.createKnockouts(data)
@@ -1313,6 +1313,7 @@ export default function Page() {
           teams={teams}
           matches={matches}
           leagueMatches={leagueMatches}
+          oneMeeting={oneMeetingOnly(knockout)}
           onClose={() => setAddMatchModalOpen(false)}
           onAdd={handleAddMatch}
         />
@@ -1323,6 +1324,7 @@ export default function Page() {
           teams={teams}
           matches={matches}
           leagueMatches={leagueMatches}
+          oneMeeting={oneMeetingOnly(knockout)}
           onClose={() => setRoundRobinOpen(false)}
           onGenerate={handleRoundRobin}
         />

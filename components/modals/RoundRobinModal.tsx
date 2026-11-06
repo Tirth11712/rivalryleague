@@ -10,12 +10,14 @@ export function RoundRobinModal({
   teams,
   matches,
   leagueMatches,
+  oneMeeting,
   onClose,
   onGenerate
 }: {
   teams: Team[]
   matches: Match[]
   leagueMatches: number | null
+  oneMeeting: boolean
   onClose: () => void
   onGenerate: (data: { double: boolean; startDate: string; venue: string }) => Promise<unknown> | void
 }) {
@@ -67,7 +69,7 @@ export function RoundRobinModal({
             FORMAT
             <select value={double ? 'double' : 'single'} onChange={e => setDouble(e.target.value === 'double')}>
               <option value="single">Single - every team plays every other team once</option>
-              <option value="double">Double - twice, home and away</option>
+              {!oneMeeting && <option value="double">Double - twice, home and away</option>}
             </select>
           </label>
           <div className="field-row" style={{ marginTop: 0 }}>

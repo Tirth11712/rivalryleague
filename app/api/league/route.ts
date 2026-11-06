@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { reply, serverError } from '@/lib/server/respond'
 import { requireAuth } from '@/lib/server/auth/token'
 import { readDb, writeDb } from '@/lib/server/db'
-import { isLeagueMatch } from '@/lib/shared/playoffs'
+import { isLeagueMatch, KNOCKOUT_FORMATS, oneMeetingOnly, type KnockoutFormat } from '@/lib/shared/playoffs'
 
 export async function GET() {
   try {
@@ -51,7 +51,7 @@ export async function PUT(req: Request) {
       db.league.leagueMatches = n
     }
     if (body.knockout !== undefined) {
-      if (body.knockout !== 'semis' && body.knockout !== 'final') {
+      if (!KNOCKOUT_FORMATS.includes(body.knockout as KnockoutFormat)) {
         return NextResponse.json({ success: false, message: 'Unknown knockout format' }, { status: 400 })
       }
       if (body.knockout !== (db.league.knockout || 'semis') && db.matches.some(m => !isLeagueMatch(m))) {
@@ -59,6 +59,19 @@ export async function PUT(req: Request) {
           { success: false, message: 'Knockout matches already exist - delete them before changing the format' },
           { status: 400 }
         )
+      }
+      if (oneMeetingOnly(body.knockout)) {
+        const seen = new Set<string>()
+        for (const m of db.matches.filter(isLeagueMatch)) {
+          const k = [m.teamA, m.teamB].sort().join('|')
+          if (seen.has(k)) {
+            return NextResponse.json(
+              { success: false, message: `${m.teamA} and ${m.teamB} meet more than once in the league - in this format each pair plays once, so delete the extra match first` },
+              { status: 400 }
+            )
+          }
+          seen.add(k)
+        }
       }
       db.league.knockout = body.knockout
     }

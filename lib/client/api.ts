@@ -157,7 +157,7 @@ export const apiLeague = {
     defaultPurse?: number
     maxSquadSize?: number
     leagueMatches?: number
-    knockout?: 'semis' | 'final'
+    knockout?: 'semis' | 'final' | 'eliminator'
   }) =>
     request<{ success: boolean; message: string; league: any }>('/api/league', {
       method: 'PUT',
@@ -316,7 +316,7 @@ export const apiMatches = {
       method: 'POST',
       body: JSON.stringify({ action: 'generate-round-robin', ...data })
     }),
-  createKnockouts: (data: { round: 'semis' | 'final'; pairings: { teamA: string; teamB: string }[]; date: string; venue?: string }) =>
+  createKnockouts: (data: { round: 'semis' | 'eliminator' | 'final'; pairings: { teamA: string; teamB: string }[]; date: string; venue?: string }) =>
     request<{ success: boolean; message: string }>('/api/matches', {
       method: 'POST',
       body: JSON.stringify({ action: 'create-knockouts', ...data })

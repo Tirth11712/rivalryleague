@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { CalendarDays, Plus, Coins, Trash2, ClipboardList, Trophy, Dices } from 'lucide-react'
 import type { Match, Team } from '@/lib/server/db'
-import { isLeagueMatch, playoffPhase, type KnockoutFormat, type Pairing } from '@/lib/shared/playoffs'
+import { isLeagueMatch, playoffPhase, type KnockoutFormat, type KnockoutRound, type Pairing } from '@/lib/shared/playoffs'
 
 export function ScheduleView({
   matches,
@@ -33,7 +33,7 @@ export function ScheduleView({
   onQuickToss: () => void
   leagueMatches: number | null
   knockout: KnockoutFormat
-  onCreateKnockouts: (round: 'semis' | 'final', pairings: Pairing[]) => void
+  onCreateKnockouts: (round: KnockoutRound, pairings: Pairing[]) => void
   onRoundRobin: () => void
 }) {
   const knockoutsStarted = matches.some(m => !isLeagueMatch(m))
@@ -41,11 +41,13 @@ export function ScheduleView({
   const leagueCount = matches.filter(isLeagueMatch).length
   const banner = (() => {
     switch (phase.phase) {
-      case 'unset': return isAuctioneer ? 'Set the number of league matches (asked when you add a match) so the semi-finalists and finalists can be decided.' : ''
+      case 'unset': return isAuctioneer ? 'Set the number of league matches (asked when you add a match) so the knockout teams can be decided.' : ''
       case 'league': return `League stage: ${phase.played} of ${phase.total} matches played${phase.scheduled < phase.total ? ` · ${phase.total - phase.scheduled} still to schedule` : ''}.`
-      case 'too-few-teams': return `League stage complete. ${knockout === 'semis' ? 'Semi-finals need' : 'The final needs'} at least ${phase.needed} teams.`
+      case 'too-few-teams': return `League stage complete. ${knockout === 'semis' ? 'Semi-finals need' : knockout === 'eliminator' ? 'The eliminator format needs' : 'The final needs'} at least ${phase.needed} teams.`
       case 'semis-ready': return 'League stage complete - the top 4 go to the semi-finals.'
       case 'semis': return 'Semi-finals under way. The final can be created once both have a result.'
+      case 'eliminator-ready': return `League stage complete - ${phase.pairings[0].teamA} v ${phase.pairings[0].teamB} in the eliminator; the league leader waits in the final.`
+      case 'eliminator': return 'Eliminator under way. The final can be created once it has a result.'
       case 'final-ready': return 'Finalists decided.'
       case 'final': return 'The final is scheduled.'
       case 'done': return `🏆 ${phase.champion} are the champions!`
@@ -88,6 +90,11 @@ export function ScheduleView({
           {isAuctioneer && phase.phase === 'semis-ready' && (
             <button className="primary-btn btn-sm" onClick={() => onCreateKnockouts('semis', phase.pairings)}>
               <Trophy size={14} /> Create semi-finals
+            </button>
+          )}
+          {isAuctioneer && phase.phase === 'eliminator-ready' && (
+            <button className="primary-btn btn-sm" onClick={() => onCreateKnockouts('eliminator', phase.pairings)}>
+              <Trophy size={14} /> Create eliminator
             </button>
           )}
           {isAuctioneer && phase.phase === 'final-ready' && (

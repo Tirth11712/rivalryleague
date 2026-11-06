@@ -1,5 +1,5 @@
 import { readDb, writeDb, Match, InningsScore } from '../db'
-import { isLeagueMatch, LEAGUE_STAGE, playoffPhase, qualifiersFor } from '@/lib/shared/playoffs'
+import { isLeagueMatch, LEAGUE_STAGE, oneMeetingOnly, playoffPhase, qualifiersFor, type KnockoutRound } from '@/lib/shared/playoffs'
 
 export async function getAllMatches(): Promise<Match[]> {
   const db = await readDb()
@@ -26,7 +26,7 @@ export async function createMatch(data: {
   }
   // Semi-finals and the final come from the points table, through createKnockouts
   if (!isLeagueMatch({ stage: (data.stage || '').trim() })) {
-    return { success: false, message: 'Semi-finals and the final are created from the points table once the league stage is over' }
+    return { success: false, message: 'Knockout matches are created from the points table once the league stage is over' }
   }
   const total = db.league.leagueMatches
   if (!total) {
@@ -38,6 +38,9 @@ export async function createMatch(data: {
   }
   if (db.matches.some(m => !isLeagueMatch(m))) {
     return { success: false, message: 'The knockouts have started - no more league matches can be added' }
+  }
+  if (oneMeetingOnly(db.league.knockout) && db.matches.some(m => isLeagueMatch(m) && samePair(m, data.teamA, data.teamB))) {
+    return { success: false, message: `${data.teamA} and ${data.teamB} already meet in the league - each pair plays once in this format` }
   }
 
   const newMatch: Match = {
@@ -69,6 +72,9 @@ export async function generateRoundRobin(input: {
   const db = await readDb()
   const names = db.teams.map(t => t.name)
   if (names.length < 2) return { success: false, message: 'Add at least two teams first' }
+  if (input.double && oneMeetingOnly(db.league.knockout)) {
+    return { success: false, message: 'Each pair plays once in the eliminator format - use a single round robin' }
+  }
   if (db.matches.some(m => !isLeagueMatch(m))) {
     return { success: false, message: 'The knockouts have started - no more league matches can be added' }
   }
@@ -134,6 +140,9 @@ export async function generateRoundRobin(input: {
   }
 }
 
+const samePair = (m: Pick<Match, 'teamA' | 'teamB'>, a: string, b: string) =>
+  (m.teamA === a && m.teamB === b) || (m.teamA === b && m.teamB === a)
+
 function newMatchId(existing: Match[]): string {
   let id = `m_${Date.now()}`
   for (let i = 2; existing.some(m => m.id === id); i++) id = `m_${Date.now()}_${i}`
@@ -141,12 +150,12 @@ function newMatchId(existing: Match[]): string {
 }
 
 /**
- * Creates the semi-finals or the final once the previous stage is complete. The pairings start
+ * Creates the semi-finals, the eliminator or the final once the previous stage is complete. The pairings start
  * from the points table on the superadmin's screen; they may change who plays whom, but only
  * among teams that qualified.
  */
 export async function createKnockouts(input: {
-  round: 'semis' | 'final'
+  round: KnockoutRound
   pairings: { teamA: string; teamB: string }[]
   date?: string
   venue?: string
@@ -154,17 +163,19 @@ export async function createKnockouts(input: {
   const db = await readDb()
   const format = db.league.knockout || 'semis'
   const state = playoffPhase(db.teams, db.matches, db.league.leagueMatches, format)
-  const wanted = input.round === 'semis' ? 'semis-ready' : 'final-ready'
-  if (state.phase !== wanted) {
+  const wanted = `${input.round}-ready`
+  if (state.phase !== wanted || !('pairings' in state)) {
     const why: Record<string, string> = {
       unset: 'Set how many league matches the season has first',
       league: 'Every league match needs a result first',
       semis: 'Both semi-finals need a result first',
+      eliminator: 'The eliminator needs a result first',
+      'eliminator-ready': 'The eliminator comes before the final',
       final: 'The final is already scheduled',
       done: 'The final has already been played',
       'too-few-teams': `This format needs at least ${qualifiersFor(format)} teams`,
       'semis-ready': 'The semi-finals come before the final',
-      'final-ready': format === 'final' ? 'This league goes straight to the final' : 'The semi-finals are already scheduled'
+      'final-ready': format === 'final' ? 'This league goes straight to the final' : format === 'eliminator' ? 'The eliminator is already scheduled' : 'The semi-finals are already scheduled'
     }
     return { success: false, message: why[state.phase] }
   }
