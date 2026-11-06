@@ -41,7 +41,6 @@ import { PlayersView } from '@/components/views/PlayersView'
 import { ScheduleView } from '@/components/views/ScheduleView'
 import { ResultsView } from '@/components/views/ResultsView'
 import { StandingsView } from '@/components/views/StandingsView'
-import { KnockoutModal } from '@/components/modals/KnockoutModal'
 import type { KnockoutFormat, Pairing } from '@/lib/shared/playoffs'
 
 // Popups load the first time they open
@@ -56,6 +55,15 @@ const TossModal = dynamic(() => import('@/components/modals/TossModal').then(m =
 const ResultModal = dynamic(() => import('@/components/modals/ResultModal').then(m => m.ResultModal))
 const OwnerLoginModal = dynamic(() => import('@/components/modals/OwnerLoginModal').then(m => m.OwnerLoginModal))
 const SetupModal = dynamic(() => import('@/components/modals/SetupModal').then(m => m.SetupModal))
+const KnockoutModal = dynamic(() => import('@/components/modals/KnockoutModal').then(m => m.KnockoutModal))
+const RoundRobinModal = dynamic(() => import('@/components/modals/RoundRobinModal').then(m => m.RoundRobinModal))
+
+/** A player shown at once while the server saves it; the saved one replaces it. */
+function pendingPlayer(name: string, base: number, number: number, i: number): Player {
+  const words = name.trim().split(/\s+/)
+  const initials = (words.length > 1 ? words[0][0] + words[1][0] : name.trim().slice(0, 2)).toUpperCase()
+  return { id: -(Date.now() + i), number, name: name.trim(), base: base || 500, status: 'Upcoming', initials }
+}
 
 export default function Page() {
   // Navigation & Core Entity State
@@ -83,6 +91,7 @@ export default function Page() {
   const [maxSquadSize, setMaxSquadSize] = useState(11)
   const [leagueMatches, setLeagueMatches] = useState<number | null>(null)
   const [knockout, setKnockout] = useState<KnockoutFormat>('semis')
+  const [roundRobinOpen, setRoundRobinOpen] = useState(false)
   const [knockoutRound, setKnockoutRound] = useState<{ round: 'semis' | 'final'; pairings: Pairing[] } | null>(null)
 
   // Auctioneer Master Auth State
@@ -171,19 +180,42 @@ export default function Page() {
     }
   }, [])
 
+  // Changes shown on screen before the server has answered; refreshes wait until they are saved
+  const pendingChanges = useRef(0)
+
   // Load and synchronize state from backend: one request, and a few bytes when nothing changed
   const loadAuction = useCallback(async () => {
     try {
       const sync = ++syncsStarted.current
       const sentAt = performance.now()
       const data = await apiState.get(stateRev.current)
-      if (!data.success || sync < newestSyncApplied.current) return
+      // A refresh read before an unsaved change would briefly undo it on screen
+      if (!data.success || sync < newestSyncApplied.current || pendingChanges.current > 0) return
       newestSyncApplied.current = sync
       if (data.state) applyState(data.state, sentAt)
     } catch (e) {
       console.error('Failed to sync the league:', e)
     }
   }, [applyState])
+
+  /**
+   * Shows a change straight away and saves it in the background. The server's answer carries the
+   * saved league, which then replaces the guess, or puts the screen back if the change was refused.
+   */
+  const instant = async <T,>(show: () => void, save: () => Promise<T>): Promise<T> => {
+    pendingChanges.current++
+    lastAuctionSync.current = '' // make the server's answer redraw even if it matches the old screen
+    lastSync.current = ''
+    show()
+    try {
+      return await save()
+    } catch (err) {
+      lastStateAt.current = -Infinity // network failure: nothing came back, so fetch the real league
+      throw err
+    } finally {
+      pendingChanges.current--
+    }
+  }
 
   // A change's own answer already carried the fresh league; only ask again when it did not
   const loadState = useCallback(async () => {
@@ -673,18 +705,22 @@ export default function Page() {
   // Team Operations
   const handleAddTeam = async (t: {
     name: string
-    short: string
     owner: string
     color: string
     purse: number
-    tagline: string
   }) => {
     guardAuctioneer(async () => {
       try {
-        const data = await apiTeams.create(t)
+        const data = await instant(
+          () => {
+            const short = t.name.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase()
+            setTeams(prev => [...prev, { id: `pending_${Date.now()}`, spent: 0, players: 0, short, tagline: '', ...t }])
+            setTeamModalOpen(false)
+          },
+          () => apiTeams.create(t)
+        )
         if (data.success) {
           notify(`Franchise "${t.name}" registered with ₹${t.purse.toLocaleString()} purse`)
-          setTeamModalOpen(false)
           if (data.team) setOwnerLoginTeam(data.team) // new teams go straight to owner setup
         } else {
           notify(data.message || 'Error creating team')
@@ -703,7 +739,13 @@ export default function Page() {
         return
       }
       try {
-        const data = await apiTeams.delete(name)
+        const data = await instant(
+          () => {
+            setTeams(prev => prev.filter(t => t.name !== name))
+            setPlayers(prev => prev.map(p => (p.soldTo === name ? { ...p, status: 'Upcoming', soldTo: undefined, soldPrice: undefined } : p)))
+          },
+          () => apiTeams.delete(name)
+        )
         notify(data.success ? `Franchise "${name}" deleted` : data.message || 'Could not delete team')
       } catch {
         notify('Failed to delete team')
@@ -716,10 +758,19 @@ export default function Page() {
   const handleAdjustBudget = async (teamId: string, mode: 'set' | 'add' | 'subtract', amount: number) => {
     guardAuctioneer(async () => {
       try {
-        const data = await apiTeams.adjustBudget(teamId, mode, amount)
+        const data = await instant(
+          () => {
+            setTeams(prev => prev.map(t => {
+              if (t.id !== teamId) return t
+              const purse = mode === 'set' ? amount : mode === 'add' ? t.purse + amount : t.purse - amount
+              return { ...t, purse: Math.max(0, purse) }
+            }))
+            setBudgetModalTeam(null)
+          },
+          () => apiTeams.adjustBudget(teamId, mode, amount)
+        )
         if (data.success) {
           notify(data.message)
-          setBudgetModalTeam(null)
         } else {
           notify(data.message)
         }
@@ -738,10 +789,15 @@ export default function Page() {
   }) => {
     return guardAuctioneer(async () => {
       try {
-        const data = await apiPlayers.create(p)
+        const data = await instant(
+          () => {
+            setPlayers(prev => [...prev, pendingPlayer(p.name, p.base, nextPlayerNumber, 0)])
+            setPlayerModalOpen(false)
+          },
+          () => apiPlayers.create(p)
+        )
         if (data.success) {
           notify(`Player #${data.player?.number || nextPlayerNumber} "${p.name}" added with base price ₹${p.base || 500}`)
-          setPlayerModalOpen(false)
         } else {
           notify(data.message || 'Could not add player')
         }
@@ -756,10 +812,15 @@ export default function Page() {
   const handleBulkImport = async (list: ParsedPlayer[]) => {
     return guardAuctioneer(async () => {
       try {
-        const data = await apiPlayers.bulkImport(list)
+        const data = await instant(
+          () => {
+            setPlayers(prev => [...prev, ...list.map((p, i) => pendingPlayer(p.name, p.base || 500, nextPlayerNumber + i, i))])
+            setBulkModalOpen(false)
+          },
+          () => apiPlayers.bulkImport(list)
+        )
         if (data.success) {
           notify(data.message)
-          setBulkModalOpen(false)
         } else {
           notify((data as { message?: string }).message || 'Could not import players')
         }
@@ -776,7 +837,7 @@ export default function Page() {
       const target = players.find(p => p.id === id)
       if (!confirm(`Remove ${target?.name || 'this player'}? A sold player's price goes back to their team.`)) return
       try {
-        const data = await apiPlayers.delete(id)
+        const data = await instant(() => setPlayers(prev => prev.filter(p => p.id !== id)), () => apiPlayers.delete(id))
         notify(data.success ? 'Player removed' : data.message || 'Could not remove player')
       } catch {
         notify('Failed to delete player')
@@ -786,10 +847,45 @@ export default function Page() {
     })
   }
 
+  const handleDeletePlayers = async (ids: number[], all: boolean) => {
+    guardAuctioneer(async () => {
+      const gone = new Set(ids)
+      const sold = players.filter(p => gone.has(p.id) && p.status === 'Sold').length
+      const what = all ? `ALL ${ids.length} players` : `these ${ids.length} players`
+      if (!confirm(`Delete ${what}?${sold ? ` ${sold} sold player${sold === 1 ? "'s price goes" : "s' prices go"} back to their teams.` : ''} This cannot be undone.`)) return
+      try {
+        const data = await instant(
+          () => {
+            const refunds = new Map<string, { money: number; count: number }>()
+            for (const p of players) {
+              if (!gone.has(p.id) || p.status !== 'Sold' || !p.soldTo) continue
+              const r = refunds.get(p.soldTo) || { money: 0, count: 0 }
+              refunds.set(p.soldTo, { money: r.money + (p.soldPrice || 0), count: r.count + 1 })
+            }
+            setPlayers(prev => prev.filter(p => !gone.has(p.id)))
+            setTeams(prev => prev.map(t => {
+              const r = refunds.get(t.name)
+              return r ? { ...t, purse: t.purse + r.money, spent: Math.max(0, t.spent - r.money), players: Math.max(0, t.players - r.count) } : t
+            }))
+          },
+          () => apiPlayers.deleteMany(ids)
+        )
+        notify(data.message)
+      } catch {
+        notify('Failed to delete players')
+      } finally {
+        loadState()
+      }
+    })
+  }
+
   const handleReopenPlayer = async (id: number) => {
     guardAuctioneer(async () => {
       try {
-        const data = await apiPlayers.update(id, { status: 'Upcoming' })
+        const data = await instant(
+          () => setPlayers(prev => prev.map(p => (p.id === id ? { ...p, status: 'Upcoming', soldTo: undefined, soldPrice: undefined } : p))),
+          () => apiPlayers.update(id, { status: 'Upcoming' })
+        )
         notify(data.success ? 'Player restored to upcoming pool' : data.message || 'Could not reopen player')
       } catch {
         notify('Failed to re-auction player')
@@ -817,15 +913,43 @@ export default function Page() {
             return
           }
         }
-        const data = await apiMatches.create(fixture)
+        const data = await instant(
+          () => {
+            setMatches(prev => [...prev, {
+              id: `pending_${Date.now()}`,
+              matchNumber: prev.length + 1,
+              stage: 'League Match',
+              teamA: fixture.teamA,
+              teamB: fixture.teamB,
+              date: fixture.date,
+              venue: fixture.venue || 'Main Stadium Arena',
+              status: 'Scheduled'
+            }])
+            setAddMatchModalOpen(false)
+          },
+          () => apiMatches.create(fixture)
+        )
         if (data.success) {
           notify(data.message || `Match fixture scheduled: ${m.teamA} vs ${m.teamB}`)
-          setAddMatchModalOpen(false)
         } else {
           notify(data.message || 'Could not schedule match')
         }
       } catch {
         notify('Failed to schedule match')
+      } finally {
+        loadState()
+      }
+    })
+  }
+
+  const handleRoundRobin = async (data: { double: boolean; startDate: string; venue: string }) => {
+    return guardAuctioneer(async () => {
+      try {
+        const res = await apiMatches.generateRoundRobin(data)
+        notify(res.message)
+        if (res.success) setRoundRobinOpen(false)
+      } catch {
+        notify('Failed to create the round robin')
       } finally {
         loadState()
       }
@@ -850,7 +974,10 @@ export default function Page() {
     guardAuctioneer(async () => {
       if (!confirm('Delete this match? Its toss and result will be lost.')) return
       try {
-        const data = await apiMatches.delete(id)
+        const data = await instant(
+          () => setMatches(prev => prev.filter(m => m.id !== id).map((m, i) => ({ ...m, matchNumber: i + 1 }))),
+          () => apiMatches.delete(id)
+        )
         notify(data.success ? 'Match fixture removed' : data.message || 'Could not delete match')
       } catch {
         notify('Failed to delete fixture')
@@ -869,10 +996,15 @@ export default function Page() {
         return
       }
       try {
-        const data = await apiMatches.recordToss(matchId, tossWinner, tossDecision)
+        const data = await instant(
+          () => {
+            setMatches(prev => prev.map(m => (m.id === matchId ? { ...m, tossWinner, tossDecision, status: 'Toss Done' } : m)))
+            setTossModalMatch(null)
+          },
+          () => apiMatches.recordToss(matchId, tossWinner, tossDecision)
+        )
         if (data.success) {
           notify(data.message)
-          setTossModalMatch(null)
         } else {
           notify(data.message || 'Could not record toss')
         }
@@ -1061,6 +1193,7 @@ export default function Page() {
             onAddPlayer={() => guardAuctioneer(() => setPlayerModalOpen(true))}
             onBulkImport={() => guardAuctioneer(() => setBulkModalOpen(true))}
             onDeletePlayer={handleDeletePlayer}
+            onDeleteMany={handleDeletePlayers}
             onReopenPlayer={handleReopenPlayer}
             onDirectSell={handleOpenDirectSell}
             onNominate={id => {
@@ -1099,6 +1232,7 @@ export default function Page() {
             leagueMatches={leagueMatches}
             knockout={knockout}
             onCreateKnockouts={(round, pairings) => guardAuctioneer(() => setKnockoutRound({ round, pairings }))}
+            onRoundRobin={() => guardAuctioneer(() => setRoundRobinOpen(true))}
           />
         )}
 
@@ -1181,6 +1315,16 @@ export default function Page() {
           leagueMatches={leagueMatches}
           onClose={() => setAddMatchModalOpen(false)}
           onAdd={handleAddMatch}
+        />
+      )}
+
+      {roundRobinOpen && (
+        <RoundRobinModal
+          teams={teams}
+          matches={matches}
+          leagueMatches={leagueMatches}
+          onClose={() => setRoundRobinOpen(false)}
+          onGenerate={handleRoundRobin}
         />
       )}
 

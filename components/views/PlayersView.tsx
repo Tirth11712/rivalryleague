@@ -22,6 +22,7 @@ export function PlayersView({
   onAddPlayer,
   onBulkImport,
   onDeletePlayer,
+  onDeleteMany,
   onReopenPlayer,
   onNominate,
   onDirectSell,
@@ -38,6 +39,7 @@ export function PlayersView({
   onAddPlayer: () => void
   onBulkImport: () => void
   onDeletePlayer: (id: number) => void
+  onDeleteMany: (ids: number[], all: boolean) => void
   onReopenPlayer: (id: number) => void
   onNominate: (id: number) => void
   onDirectSell: (player?: Player) => void
@@ -68,6 +70,15 @@ export function PlayersView({
         </div>
         {isAuctioneer && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {filtered.length > 0 && (
+              <button
+                className="ghost-btn btn-sm"
+                style={{ color: 'var(--red)' }}
+                onClick={() => onDeleteMany(filtered.map(p => p.id), filtered.length === players.length)}
+              >
+                <Trash2 size={14} /> {filtered.length === players.length ? `Delete all (${players.length})` : `Delete these ${filtered.length}`}
+              </button>
+            )}
             <button className="ghost-btn btn-sm" onClick={onBulkImport}><FileText size={14} /> Add from Text</button>
             <button className="primary-btn btn-sm" onClick={onAddPlayer}><Plus size={14} /> Add Player</button>
           </div>

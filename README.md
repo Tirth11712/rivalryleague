@@ -26,7 +26,7 @@ Players do not have logins.
 - **No going back to smaller raises:** once a player has been raised by ₹250, the ₹100 step closes for that player, and so on up to ₹1,000. Every new player starts with all four steps open
 - **My squad:** owners see the players they have bought, with prices, under their bid buttons
 - Sold animation and sounds for spins, bids, sales and unsold players on every screen, with an on/off button in the header
-- Add players one at a time, or paste a whole list under **Players → Add from Text**. List numbers and bullets are removed, duplicates are skipped, and a line can end with a base price
+- Add players one at a time, or paste a whole list under **Players → Add from Text**. **Delete all** (or "Delete these" for a filtered list) removes many at once and refunds sold prices. List numbers and bullets are removed, duplicates are skipped, and a line can end with a base price
 - Live sync across screens, about every 0.7 seconds while a player is up for bids
 - Re-auction of sold or unsold players, with automatic refunds
 - Keyboard shortcuts on desktop: `S` spin, `1`-`9` bid for a team, `Enter` sell, `U` unsold
@@ -42,7 +42,7 @@ Players do not have logins.
 - Simultaneous bids cannot overwrite each other
 
 **League**
-- Fixtures added by the superadmin, with date and venue. The number of league matches is set in League Settings (or asked on the first Add Match), and Add Match stops at that number
+- Fixtures added one at a time, or all at once with **Round Robin** (single or double, home and away; pairings already scheduled are skipped and the league match count grows to fit). The number of league matches is set in League Settings (or asked on the first Add Match), and Add Match stops at that number
 - Knockouts, chosen in League Settings: top 4 play semi-finals (1st v 4th, 2nd v 3rd) then the final, or top 2 go straight to the final. Once every league match has a result, a **Create semi-finals** / **Create final** button appears on the Schedule page, filled in from the points table. A tied or abandoned knockout sends the higher-placed team through. Knockout matches do not count in the points table
 - 3D coin toss, closed once a match is completed
 - Scorecard entry, including all-out, ties and no results

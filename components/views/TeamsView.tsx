@@ -120,7 +120,7 @@ export function TeamsView({
                   <div className="team-card-top">
                     <TeamBadge team={t} />
                     <div className="info">
-                      <h3>{t.name} <span className="pill">{t.short}</span></h3>
+                      <h3>{t.name}</h3>
                       <p>Owner: {t.owner}</p>
                     </div>
                     <span className={openSlots ? 'pill' : 'pill dark'}>{openSlots ? 'Active' : 'Full'}</span>

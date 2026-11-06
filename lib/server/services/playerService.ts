@@ -116,6 +116,40 @@ export async function updatePlayer(
   return { success: true, player: updatedPlayer }
 }
 
+/** Removes many players in one save, refunding each sold player's price to their team. */
+export async function deletePlayers(ids: number[]): Promise<{ success: boolean; message: string }> {
+  const db = await readDb()
+  const wanted = new Set(ids.map(Number))
+  const targets = db.players.filter(p => wanted.has(p.id))
+  if (targets.length === 0) return { success: false, message: 'No players to remove' }
+
+  for (const p of targets) {
+    if (p.status !== 'Sold' || !p.soldTo) continue
+    const team = db.teams.find(t => t.name === p.soldTo)
+    if (!team) continue
+    team.purse += p.soldPrice || 0
+    team.spent = Math.max(0, team.spent - (p.soldPrice || 0))
+    team.players = Math.max(0, team.players - 1)
+  }
+  db.players = db.players.filter(p => !wanted.has(p.id))
+
+  if (db.auctionState.currentPlayerId !== null && wanted.has(db.auctionState.currentPlayerId)) {
+    db.auctionState.currentPlayerId = null
+    db.auctionState.currentBid = 0
+    db.auctionState.leaderTeamId = null
+    db.auctionState.leaderTeamName = null
+    delete db.auctionState.minRaise
+    delete db.auctionState.spin
+  }
+
+  await writeDb(db)
+  const sold = targets.filter(p => p.status === 'Sold').length
+  return {
+    success: true,
+    message: `Removed ${targets.length} player${targets.length === 1 ? '' : 's'}${sold ? ` · ${sold} sold price${sold === 1 ? '' : 's'} refunded to teams` : ''}`
+  }
+}
+
 export async function deletePlayer(id: number): Promise<{ success: boolean; message: string }> {
   const db = await readDb()
   const target = db.players.find(p => p.id === id)

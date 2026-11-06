@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { CalendarDays, Plus, Coins, Trash2, ClipboardList, Trophy } from 'lucide-react'
+import { CalendarDays, Plus, Coins, Trash2, ClipboardList, Trophy, Dices } from 'lucide-react'
 import type { Match, Team } from '@/lib/server/db'
 import { isLeagueMatch, playoffPhase, type KnockoutFormat, type Pairing } from '@/lib/shared/playoffs'
 
@@ -18,7 +18,8 @@ export function ScheduleView({
   onQuickToss,
   leagueMatches,
   knockout,
-  onCreateKnockouts
+  onCreateKnockouts,
+  onRoundRobin
 }: {
   matches: Match[]
   teams: Team[]
@@ -33,7 +34,9 @@ export function ScheduleView({
   leagueMatches: number | null
   knockout: KnockoutFormat
   onCreateKnockouts: (round: 'semis' | 'final', pairings: Pairing[]) => void
+  onRoundRobin: () => void
 }) {
+  const knockoutsStarted = matches.some(m => !isLeagueMatch(m))
   const phase = useMemo(() => playoffPhase(teams, matches, leagueMatches, knockout), [teams, matches, leagueMatches, knockout])
   const leagueCount = matches.filter(isLeagueMatch).length
   const banner = (() => {
@@ -67,6 +70,11 @@ export function ScheduleView({
         {isAuctioneer && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="ghost-btn btn-sm" onClick={onQuickToss}><Coins size={14} /> Quick Toss</button>
+            {!knockoutsStarted && (
+              <button className="ghost-btn btn-sm" onClick={onRoundRobin} disabled={teams.length < 2}>
+                <Dices size={14} /> Round Robin
+              </button>
+            )}
             <button className="primary-btn btn-sm" onClick={onAddMatch}>
               <Plus size={14} /> Add Match{leagueMatches ? ` (${Math.min(leagueCount, leagueMatches)}/${leagueMatches})` : ''}
             </button>
@@ -96,9 +104,14 @@ export function ScheduleView({
           <h3>No matches scheduled</h3>
           <p>Fixtures appear here once the superadmin creates them.</p>
           {isAuctioneer && (
-            <button className="primary-btn" onClick={onAddMatch}>
-              <Plus size={16} /> Add Match
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <button className="primary-btn" onClick={onRoundRobin} disabled={teams.length < 2}>
+                <Dices size={16} /> Generate Round Robin
+              </button>
+              <button className="ghost-btn" onClick={onAddMatch}>
+                <Plus size={16} /> Add Match
+              </button>
+            </div>
           )}
         </div>
       ) : (

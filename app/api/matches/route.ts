@@ -5,6 +5,7 @@ import {
   getAllMatches,
   createMatch,
   createKnockouts,
+  generateRoundRobin,
   deleteMatch
 } from '@/lib/server/services/matchService'
 
@@ -23,6 +24,9 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
+    if (body.action === 'generate-round-robin') {
+      return reply(await generateRoundRobin({ double: !!body.double, startDate: body.startDate, venue: body.venue }))
+    }
     if (body.action === 'create-knockouts') {
       const round = body.round === 'final' ? 'final' : 'semis'
       return reply(await createKnockouts({ round, pairings: body.pairings, date: body.date, venue: body.venue }))

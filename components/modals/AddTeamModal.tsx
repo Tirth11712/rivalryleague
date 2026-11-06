@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { Plus, X } from 'lucide-react'
+import { ColorWheel } from '@/components/common/ColorWheel'
 
 export function AddTeamModal({
   defaultPurse,
@@ -10,26 +11,17 @@ export function AddTeamModal({
 }: {
   defaultPurse: number
   onClose: () => void
-  onAdd: (team: { name: string; short: string; owner: string; color: string; purse: number; tagline: string }) => void
+  onAdd: (team: { name: string; owner: string; color: string; purse: number }) => void
 }) {
   const [name, setName] = useState('')
-  const [short, setShort] = useState('')
   const [owner, setOwner] = useState('')
-  const [color, setColor] = useState('#22D3EE')
+  const [color, setColor] = useState('#22d3ee')
   const [purse, setPurse] = useState<number>(defaultPurse)
-  const [tagline, setTagline] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
-    onAdd({
-      name: name.trim(),
-      short: short.trim() || name.slice(0, 2).toUpperCase(),
-      owner: owner.trim() || 'Owner',
-      color,
-      purse,
-      tagline: tagline.trim() || 'Ready to compete'
-    })
+    onAdd({ name: name.trim(), owner: owner.trim() || 'Owner', color, purse })
   }
 
   return (
@@ -54,26 +46,6 @@ export function AddTeamModal({
           </label>
           <div className="field-row" style={{ marginTop: 0 }}>
             <label>
-              SHORT CODE (2-3 LETTERS)
-              <input
-                placeholder="e.g. RCB"
-                value={short}
-                onChange={e => setShort(e.target.value.toUpperCase())}
-                maxLength={3}
-              />
-            </label>
-            <label>
-              FRANCHISE COLOR
-              <input
-                type="color"
-                value={color}
-                onChange={e => setColor(e.target.value)}
-                style={{ padding: '4px', height: '42px', cursor: 'pointer' }}
-              />
-            </label>
-          </div>
-          <div className="field-row" style={{ marginTop: 0 }}>
-            <label>
               CAPTAIN / OWNER
               <input
                 placeholder="e.g. Virat"
@@ -91,14 +63,10 @@ export function AddTeamModal({
               />
             </label>
           </div>
-          <label>
-            TAGLINE / SLOGAN
-            <input
-              placeholder="e.g. Play Bold"
-              value={tagline}
-              onChange={e => setTagline(e.target.value)}
-            />
-          </label>
+          <div>
+            <span className="section-kicker" style={{ display: 'block', marginBottom: 8 }}>FRANCHISE COLOUR</span>
+            <ColorWheel value={color} onChange={setColor} />
+          </div>
           <div className="modal-actions">
             <button type="button" className="ghost-btn" onClick={onClose}>Cancel</button>
             <button type="submit" className="primary-btn"><Plus size={16} /> Register Franchise</button>
@@ -108,4 +76,3 @@ export function AddTeamModal({
     </div>
   )
 }
-

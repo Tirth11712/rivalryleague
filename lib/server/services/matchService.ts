@@ -56,6 +56,84 @@ export async function createMatch(data: {
   return { success: true, match: newMatch, message: `League match ${leagueCount + 1} of ${total} scheduled: ${data.teamA} vs ${data.teamB}` }
 }
 
+/**
+ * Adds every league pairing not yet scheduled: each pair of teams once (single) or twice with
+ * home and away swapped (double). Rounds follow the circle method so no team plays twice in a
+ * round; each round gets the next day from the start date. The league match count grows to fit.
+ */
+export async function generateRoundRobin(input: {
+  double?: boolean
+  startDate?: string
+  venue?: string
+}): Promise<{ success: boolean; message: string }> {
+  const db = await readDb()
+  const names = db.teams.map(t => t.name)
+  if (names.length < 2) return { success: false, message: 'Add at least two teams first' }
+  if (db.matches.some(m => !isLeagueMatch(m))) {
+    return { success: false, message: 'The knockouts have started - no more league matches can be added' }
+  }
+
+  // How often each pair already meets in the league
+  const key = (a: string, b: string) => [a, b].sort().join('\u0000')
+  const met = new Map<string, number>()
+  for (const m of db.matches.filter(isLeagueMatch)) met.set(key(m.teamA, m.teamB), (met.get(key(m.teamA, m.teamB)) || 0) + 1)
+
+  const ring: (string | null)[] = names.length % 2 ? [...names, null] : [...names]
+  const rounds: [string, string][][] = []
+  for (let r = 0; r < ring.length - 1; r++) {
+    const round: [string, string][] = []
+    for (let i = 0; i < ring.length / 2; i++) {
+      const a = ring[i], b = ring[ring.length - 1 - i]
+      if (a && b) round.push(r % 2 ? [b, a] : [a, b]) // alternate who is listed first
+    }
+    rounds.push(round)
+    ring.splice(1, 0, ring.pop() as string | null) // rotate everyone but the first
+  }
+  const legs = input.double ? [...rounds, ...rounds.map(rd => rd.map(([a, b]) => [b, a] as [string, string]))] : rounds
+
+  const start = /^\d{4}-\d{2}-\d{2}$/.test(input.startDate || '') ? new Date(`${input.startDate}T00:00:00Z`) : new Date()
+  const venue = (input.venue || '').trim() || 'Main Stadium Arena'
+  const target = input.double ? 2 : 1
+  const used = new Map<string, number>()
+  let added = 0
+  let day = 0
+  for (const round of legs) {
+    let any = false
+    for (const [a, b] of round) {
+      const k = key(a, b)
+      used.set(k, (used.get(k) || 0) + 1)
+      if ((met.get(k) || 0) >= used.get(k)! || used.get(k)! > target) continue // already scheduled
+      const date = new Date(start.getTime() + day * 86400000).toISOString().split('T')[0]
+      db.matches.push({
+        id: newMatchId(db.matches),
+        matchNumber: db.matches.length + 1,
+        stage: LEAGUE_STAGE,
+        teamA: a,
+        teamB: b,
+        date,
+        venue,
+        status: 'Scheduled'
+      })
+      added++
+      any = true
+    }
+    if (any) day++
+  }
+
+  if (added === 0) {
+    return { success: false, message: `Every pair already plays ${target === 2 ? 'twice' : 'once'} - nothing to add` }
+  }
+  const leagueCount = db.matches.filter(isLeagueMatch).length
+  const before = db.league.leagueMatches || 0
+  db.league.leagueMatches = Math.max(before, leagueCount)
+  await writeDb(db)
+  const raised = before && db.league.leagueMatches > before ? ` · league matches raised from ${before} to ${db.league.leagueMatches}` : ''
+  return {
+    success: true,
+    message: `Round robin: ${added} match${added === 1 ? '' : 'es'} added over ${day} day${day === 1 ? '' : 's'}${raised}`
+  }
+}
+
 function newMatchId(existing: Match[]): string {
   let id = `m_${Date.now()}`
   for (let i = 2; existing.some(m => m.id === id); i++) id = `m_${Date.now()}_${i}`

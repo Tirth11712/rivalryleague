@@ -203,6 +203,11 @@ export const apiPlayers = {
   delete: (id: number) =>
     request<{ success: boolean; message: string; players: Player[] }>(`/api/players?id=${id}`, {
       method: 'DELETE'
+    }),
+  deleteMany: (ids: number[]) =>
+    request<{ success: boolean; message: string }>('/api/players', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete-many', ids })
     })
 }
 
@@ -305,6 +310,11 @@ export const apiMatches = {
     request<{ success: boolean; match?: Match; matches: Match[]; message?: string }>('/api/matches', {
       method: 'POST',
       body: JSON.stringify(data)
+    }),
+  generateRoundRobin: (data: { double: boolean; startDate: string; venue?: string }) =>
+    request<{ success: boolean; message: string }>('/api/matches', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'generate-round-robin', ...data })
     }),
   createKnockouts: (data: { round: 'semis' | 'final'; pairings: { teamA: string; teamB: string }[]; date: string; venue?: string }) =>
     request<{ success: boolean; message: string }>('/api/matches', {
