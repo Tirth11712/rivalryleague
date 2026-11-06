@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { NextResponse } from 'next/server'
-import { getSqlClient } from '../db'
+import { getSqlClient, withSql } from '../db'
 
 const MAX_FAILURES = 8
 const WINDOW_MINUTES = 15
@@ -12,13 +12,13 @@ let tableReady = false
 async function db() {
   const sql = getSqlClient()
   if (sql && !tableReady) {
-    await sql`
+    await withSql(sql => sql`
       CREATE TABLE IF NOT EXISTS login_attempts (
         key VARCHAR(64) PRIMARY KEY,
         failures INT NOT NULL,
         first_failed_at TIMESTAMP WITH TIME ZONE NOT NULL
       );
-    `
+    `)
     tableReady = true
   }
   return sql
@@ -33,11 +33,11 @@ export function attemptKey(account: string, req: Request): string {
 export async function isLocked(key: string): Promise<boolean> {
   const sql = await db()
   if (sql) {
-    const rows = (await sql`
+    const rows = (await withSql(sql => sql`
       SELECT 1 FROM login_attempts
       WHERE key = ${key} AND failures >= ${MAX_FAILURES}
         AND first_failed_at > NOW() - INTERVAL '15 minutes';
-    `) as unknown as unknown[]
+    `)) as unknown as unknown[]
     return rows.length > 0
   }
   const entry = localAttempts.get(key)
@@ -47,12 +47,12 @@ export async function isLocked(key: string): Promise<boolean> {
 export async function recordFailure(key: string): Promise<void> {
   const sql = await db()
   if (sql) {
-    await sql`
+    await withSql(sql => sql`
       INSERT INTO login_attempts (key, failures, first_failed_at) VALUES (${key}, 1, NOW())
       ON CONFLICT (key) DO UPDATE SET
         failures = CASE WHEN login_attempts.first_failed_at < NOW() - INTERVAL '15 minutes' THEN 1 ELSE login_attempts.failures + 1 END,
         first_failed_at = CASE WHEN login_attempts.first_failed_at < NOW() - INTERVAL '15 minutes' THEN NOW() ELSE login_attempts.first_failed_at END;
-    `
+    `)
     return
   }
   const entry = localAttempts.get(key)
@@ -65,7 +65,7 @@ export async function recordFailure(key: string): Promise<void> {
 
 export async function clearFailures(key: string): Promise<void> {
   const sql = await db()
-  if (sql) await sql`DELETE FROM login_attempts WHERE key = ${key};`
+  if (sql) await withSql(sql => sql`DELETE FROM login_attempts WHERE key = ${key};`)
   else localAttempts.delete(key)
 }
 

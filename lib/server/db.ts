@@ -131,17 +131,55 @@ export function getSqlClient(): Sql | null {
     sqlClient = postgres(dbUrl, {
       prepare: false, // required by Supabase's transaction pooler
       max: 1, // one connection per serverless instance
-      idle_timeout: 20,
-      connect_timeout: 10,
+      // Short-lived connections: a paused serverless instance can wake up holding a dead socket
+      idle_timeout: 10,
+      max_lifetime: 120,
+      connect_timeout: 8,
       ssl: /@(localhost|127\.0\.0\.1)[:/]/.test(dbUrl) ? false : 'require'
     })
   }
   return sqlClient
 }
 
+const QUERY_TIMEOUT_MS = 8000
+class DbTimeoutError extends Error {
+  constructor() {
+    super('The database did not answer in time')
+  }
+}
+
+/**
+ * Runs a query with a time limit. A connection that does not answer (a dead socket left over from
+ * a paused instance) is thrown away and the query is tried once more on a fresh one, instead of
+ * the request hanging until the platform kills it. A save retried this way is still guarded by
+ * save_league's revision check, so it can never apply twice.
+ */
+export async function withSql<T>(run: (sql: Sql) => Promise<T>, retry = true): Promise<T> {
+  const sql = getSqlClient()
+  if (!sql) throw new Error('DATABASE_URL is not set')
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      run(sql),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new DbTimeoutError()), QUERY_TIMEOUT_MS)
+      })
+    ])
+  } catch (err) {
+    if (!(err instanceof DbTimeoutError)) throw err
+    if (sqlClient === sql) sqlClient = null
+    sql.end({ timeout: 0 }).catch(() => {})
+    console.error('[Postgres] no answer in time, reconnecting')
+    if (retry) return withSql(run, false)
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /** The whole league in one query, or null for a database with no league yet. */
-async function loadFromPostgres(sql: Sql): Promise<DatabaseSchema | null> {
-  const rows = await sql`select load_league() as data`
+async function loadFromPostgres(): Promise<DatabaseSchema | null> {
+  const rows = await withSql(sql => sql`select load_league() as data`)
   return (rows[0]?.data as DatabaseSchema | null) ?? null
 }
 
@@ -206,7 +244,7 @@ export async function readDb(): Promise<DatabaseSchema> {
   if (sql) {
     try {
       // A new database starts from the starter data; its first save creates the league
-      return (await loadFromPostgres(sql)) ?? { ...(await seedData()), rev: 0 }
+      return (await loadFromPostgres()) ?? { ...(await seedData()), rev: 0 }
     } catch (err) {
       if (process.env.VERCEL) throw err
       console.error('[Postgres read failed, falling back to local file]:', err)
@@ -220,10 +258,10 @@ export async function readRevision(): Promise<{ rev: number | null; spinStartedA
   const sql = getSqlClient()
   if (sql) {
     try {
-      const rows = await sql`
+      const rows = await withSql(sql => sql`
         select l.rev, (a.spin->>'startedAt')::bigint as spin_at
         from league l left join auction_state a on a.id = 1
-      `
+      `)
       const row = rows[0]
       if (row) return { rev: Number(row.rev), spinStartedAt: row.spin_at == null ? null : Number(row.spin_at) }
     } catch (err) {
@@ -239,7 +277,7 @@ export async function writeDb(data: DatabaseSchema): Promise<void> {
     const baseRev = data.rev ?? 0
     try {
       // Only applies if nobody else saved since this copy was read
-      const rows = await sql`select save_league(${baseRev}, ${sql.json(data as never)}) as saved`
+      const rows = await withSql(sql => sql`select save_league(${baseRev}, ${sql.json(data as never)}) as saved`)
       if (!rows[0]?.saved) throw new DbConflictError()
       data.rev = baseRev + 1
       return
