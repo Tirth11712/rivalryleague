@@ -27,7 +27,7 @@ Players do not have logins.
 - **My squad:** owners see the players they have bought, with prices, under their bid buttons
 - Sold animation and sounds for spins, bids, sales and unsold players on every screen, with an on/off button in the header
 - Add players one at a time, or paste a whole list under **Players → Add from Text**. List numbers and bullets are removed, duplicates are skipped, and a line can end with a base price
-- Live sync across screens, about every 2 seconds during bidding
+- Live sync across screens, about every 0.7 seconds while a player is up for bids
 - Re-auction of sold or unsold players, with automatic refunds
 - Keyboard shortcuts on desktop: `S` spin, `1`-`9` bid for a team, `Enter` sell, `U` unsold
 
